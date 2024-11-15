@@ -1,0 +1,12 @@
+
+- Pods definitions
+- RBacs
+- Interaction between controller and reloader
+- FRR Rendering through configmap
+- Namespace configuration
+	- package to create config for vrf: veth , vrf , bridge, vni
+	- package to move interface
+
+validating webhook
+metrics
+liveness probes

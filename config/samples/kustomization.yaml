@@ -1,0 +1,5 @@
+## Append samples of your project ##
+resources:
+- per.io_v1alpha1_underlay.yaml
+- per.io_v1alpha1_vni.yaml
+# +kubebuilder:scaffold:manifestskustomizesamples

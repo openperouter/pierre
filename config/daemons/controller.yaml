@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: daemon
+  namespace: system
+  labels:
+    control-plane: controller
+    app.kubernetes.io/name: controller
+    app.kubernetes.io/instance: controller
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/created-by: controller
+    app.kubernetes.io/part-of: controller
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  selector:
+    matchLabels:
+      control-plane: controller
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: controller
+      labels:
+        control-plane: controller
+        app: controller
+    spec:
+      containers:
+      - command:
+        - /hostcontroller
+        args:
+        - "--node-name=$(NODE_NAME)"
+        - "--log-level=info"
+        - "--namespace=$(NAMESPACE)"
+        image: controller:latest
+        imagePullPolicy: IfNotPresent
+        name: controller
+        securityContext:
+          capabilities:
+            add: ["NET_ADMIN", "NET_RAW", "SYS_ADMIN", "NET_BIND_SERVICE"]
+            privileged: true
+        volumeMounts:
+        - mountPath: /run/containerd/containerd.sock
+          name: varrun
+          subPath: containerd.sock
+        - mountPath: /run/netns
+          name: runns
+          mountPropagation: HostToContainer
+      volumes:
+      - name: runns
+        hostPath:
+          path: /run/netns
+      - name: varrun
+        hostPath:
+          path: /run/containerd
+      - name: frr-config
+        hostPath:
+          path: /etc/perouter/frr
+          type: Directory
+      serviceAccountName: controller
+      hostNetwork: true
+      hostPID: true
+      resources:
+        limits:
+          cpu: 500m
+          memory: 128Mi
+        requests:
+          cpu: 10m
+          memory: 64Mi

@@ -1,0 +1,23 @@
+# permissions for end users to view underlays.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: openperouter
+    app.kubernetes.io/managed-by: kustomize
+  name: underlay-viewer-role
+rules:
+- apiGroups:
+  - per.io.openperouter.github.io
+  resources:
+  - underlays
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - per.io.openperouter.github.io
+  resources:
+  - underlays/status
+  verbs:
+  - get

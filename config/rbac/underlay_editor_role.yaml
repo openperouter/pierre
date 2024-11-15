@@ -1,0 +1,27 @@
+# permissions for end users to edit underlays.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: openperouter
+    app.kubernetes.io/managed-by: kustomize
+  name: underlay-editor-role
+rules:
+- apiGroups:
+  - per.io.openperouter.github.io
+  resources:
+  - underlays
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - per.io.openperouter.github.io
+  resources:
+  - underlays/status
+  verbs:
+  - get
