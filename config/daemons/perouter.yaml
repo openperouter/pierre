@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: daemon
+  name: router
   namespace: system
   labels:
     control-plane: router
@@ -35,7 +35,7 @@ spec:
         volumeMounts:
           - name: frr-sockets
             mountPath: /var/run/frr
-          - name: frr-conf
+          - name: frr-config
             mountPath: /etc/frr
         # The command is FRR's default entrypoint & waiting for the log file to appear and tailing it.
         # If the log file isn't created in 60 seconds the tail fails and the container is restarted.
@@ -95,7 +95,7 @@ spec:
               mountPath: /etc/frr
         # Copies the reloader to the shared volume between the k8s-frr controller and reloader.
         - name: cp-reloader
-          image: controller:latest
+          image: router:latest
           command: ["/bin/sh", "-c", "cp -f /reloader /etc/frr_reloader/reloader"]
           volumeMounts:
             - name: reloader

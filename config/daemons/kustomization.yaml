@@ -1,4 +1,10 @@
 resources:
-- namespace
-- controller
-- perouter
+- namespace.yaml
+- controller.yaml
+- perouter.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+images:
+- name: router
+  newName: quay.io/openperouter/router
+  newTag: latest

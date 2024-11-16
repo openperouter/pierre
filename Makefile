@@ -1,6 +1,6 @@
 # Image URL to use all building/pushing image targets
-IMG ?= quay.io/perouter/router:latest
-NAMESPACE ?= "perouter-system"
+IMG ?= quay.io/openperouter/router:latest
+NAMESPACE ?= "openperouter-system"
 LOGLEVEL ?= "info"
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.31.0
@@ -120,7 +120,7 @@ CONTROLLER_TOOLS_VERSION ?= v0.14.0
 KUBECTL_VERSION ?= v1.27.0
 GINKGO_VERSION ?= v2.19.0
 KIND_VERSION ?= v0.23.0
-KIND_CLUSTER_NAME ?= frr-k8s
+KIND_CLUSTER_NAME ?= perouter
 HELM_VERSION ?= v3.12.3
 HELM_DOCS_VERSION ?= v1.10.0
 APIDOCSGEN_VERSION ?= v0.0.12
@@ -153,13 +153,12 @@ deploy-cluster: kubectl manifests kustomize kind load-on-kind ## Deploy a cluste
 KUSTOMIZE_LAYER ?= default
 .PHONY: deploy-controller
 deploy-controller: kubectl kustomize ## Deploy controller to the K8s cluster specified in $KUBECONFIG.
-	cd config/frr-k8s && $(KUSTOMIZE) edit set image controller=${IMG}
-	$(KUBECTL) -n ${NAMESPACE} delete ds frr-k8s-daemon || true
-	$(KUBECTL) -n ${NAMESPACE} delete deployment frr-k8s-webhook-server || true
+	cd config/daemons && $(KUSTOMIZE) edit set image router=${IMG}
+	$(KUBECTL) -n ${NAMESPACE} delete ds openperouter-controller || true
+	$(KUBECTL) -n ${NAMESPACE} delete ds openperouter-router || true
 
-	$(KUSTOMIZE) build config/$(KUSTOMIZE_LAYER) | \
-		sed '/--log-level/a\        - --always-block=192.167.9.0/24,fc00:f553:ccd:e799::/64' |\
-		sed 's/--log-level=info/--log-level='$(LOGLEVEL)'/' | $(KUBECTL) apply -f -
+	# todo tweak loglevel
+	$(KUSTOMIZE) build config/$(KUSTOMIZE_LAYER) | $(KUBECTL) apply -f -
 	sleep 2s # wait for daemonset to be created
 	$(KUBECTL) -n ${NAMESPACE} wait --for=condition=Ready --all pods --timeout 300s
 
