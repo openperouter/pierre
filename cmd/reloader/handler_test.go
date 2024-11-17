@@ -6,21 +6,21 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/openperouter/openperouter/internal/reload"
+	"github.com/openperouter/openperouter/internal/frrconfig"
 )
 
 func TestHandler(t *testing.T) {
-	reloadSucceeds := func(_ string) error {
+	reloadSucceeds := func(_ frrconfig.Event) error {
 		return nil
 	}
 
-	reloadFails := func(_ string) error {
+	reloadFails := func(_ frrconfig.Event) error {
 		return errors.New("failed")
 	}
 
 	tests := []struct {
 		name       string
-		reloadMock func(string) error
+		reloadMock func(frrconfig.Event) error
 		method     string
 		httpStatus int
 	}{
@@ -45,10 +45,10 @@ func TestHandler(t *testing.T) {
 	}
 
 	t.Cleanup(func() {
-		reloadConfig = reload.Config
+		updateConfig = frrconfig.Update
 	})
 	for _, tc := range tests {
-		reloadConfig = tc.reloadMock
+		updateConfig = tc.reloadMock
 		t.Run(tc.name, func(t *testing.T) {
 			w := httptest.NewRecorder()
 			req, _ := http.NewRequest(tc.method, "/", nil)

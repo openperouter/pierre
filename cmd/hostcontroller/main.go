@@ -52,11 +52,16 @@ func init() {
 }
 
 func main() {
-	var metricsAddr string
-	var probeAddr string
-	var secureMetrics bool
-	var enableHTTP2 bool
-	var tlsOpts []func(*tls.Config)
+	var (
+		metricsAddr   string
+		probeAddr     string
+		secureMetrics bool
+		enableHTTP2   bool
+		tlsOpts       []func(*tls.Config)
+		nodeName      string
+		namespace     string
+		logLevel      string
+	)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -64,6 +69,10 @@ func main() {
 		"If set, the metrics endpoint is served securely via HTTPS. Use --metrics-secure=false to use HTTP instead.")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
+	flag.StringVar(&nodeName, "nodename", "", "The name of the node the controller runs on")
+	flag.StringVar(&namespace, "namespace", "", "The namespace the controller runs in")
+	flag.StringVar(&logLevel, "loglevel", "info", "the verbosity of the process1")
+
 	opts := zap.Options{
 		Development: true,
 	}

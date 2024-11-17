@@ -10,3 +10,4 @@
 validating webhook
 metrics
 liveness probes
+- bfd profile

@@ -20,13 +20,12 @@ import (
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 
+	"encoding/json"
 	"flag"
 	"log"
 	"net/http"
 
-	"github.com/openperouter/openperouter/internal/reload"
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
-	// +kubebuilder:scaffold:imports
+	"github.com/openperouter/openperouter/internal/frrconfig"
 )
 
 func main() {
@@ -38,16 +37,22 @@ func main() {
 	log.Fatal(http.ListenAndServe(bindAddress, nil))
 }
 
-const frrPath = "/etc/frr/frr.conf"
+var updateConfig = frrconfig.Update
 
-var reloadConfig = reload.Config
-
+// TODO serialize: multiple posts can come together
 func reloadHandler(w http.ResponseWriter, req *http.Request) {
 	if req.Method != http.MethodPost {
 		http.Error(w, "invalid method", http.StatusBadRequest)
 		return
 	}
-	err := reloadConfig(frrPath)
+	decoder := json.NewDecoder(req.Body)
+	defer req.Body.Close()
+	var event frrconfig.Event
+	err := decoder.Decode(&event)
+	if err != nil {
+		http.Error(w, "invalid reload event", http.StatusBadRequest)
+	}
+	err = updateConfig(event)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

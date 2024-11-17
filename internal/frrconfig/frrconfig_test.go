@@ -1,4 +1,4 @@
-package reload
+package frrconfig
 
 import (
 	"fmt"
@@ -13,15 +13,15 @@ var tests = map[string]struct {
 	failValidate bool
 	failReload   bool
 }{
-	"etc/frr/shouldPass": {
+	"/tmp/shouldPass": {
 		failValidate: false,
 		failReload:   false,
 	},
-	"etc/frr/failValidate": {
+	"/tmp/failValidate": {
 		failValidate: true,
 		failReload:   false,
 	},
-	"etc/frr/failReload": {
+	"/tmp/failReload": {
 		failValidate: false,
 		failReload:   true,
 	},
@@ -33,7 +33,8 @@ func TestReload(t *testing.T) {
 
 	for tc, params := range tests {
 		t.Run(fmt.Sprintf("reload %s", tc), func(t *testing.T) {
-			err := Config(tc)
+			frrConfPath = tc
+			err := Update(Event{Config: "hello"})
 			if (params.failReload || params.failValidate) && err == nil {
 				t.Fatalf("expecting failure, got no error")
 			}

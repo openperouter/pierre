@@ -27,8 +27,8 @@ spec:
       - command:
         - /controller
         args:
-        - "--node-name=$(NODE_NAME)"
-        - "--log-level=info"
+        - "--nodename=$(NODE_NAME)"
+        - "--loglevel=info"
         - "--namespace=$(NAMESPACE)"
         image: router:latest
         imagePullPolicy: IfNotPresent
