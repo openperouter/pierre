@@ -15,9 +15,6 @@
   {{ if .neighbor.Password -}}
   neighbor {{.neighbor.Addr}} password {{.neighbor.Password}}
   {{- end }}
-  {{ if .neighbor.SrcAddr -}}
-  neighbor {{.neighbor.Addr}} update-source {{.neighbor.SrcAddr}}
-  {{- end }}
 {{- if ne .neighbor.BFDProfile ""}}
   neighbor {{.neighbor.Addr}} bfd profile {{.neighbor.BFDProfile}}
 {{- end }}

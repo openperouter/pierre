@@ -28,10 +28,9 @@ type Status struct {
 }
 
 type FRR struct {
-	reloadConfig    chan reloadEvent
-	logLevel        string
-	Status          Status
-	onStatusChanged StatusChanged
+	reloadConfig chan reloadEvent
+	logLevel     string
+	Status       Status
 	sync.Mutex
 }
 
@@ -57,14 +56,14 @@ func (f *FRR) ApplyConfig(config *Config) error {
 var debounceTimeout = 3 * time.Second
 var failureTimeout = time.Second * 5
 
-func NewFRR(ctx context.Context, logger log.Logger) *FRR {
+func NewFRR(ctx context.Context, configFile string, logger log.Logger) *FRR {
 	res := &FRR{
 		reloadConfig: make(chan reloadEvent),
 		// logLevel:        logLevelToFRR(logLevel), TODO
 		// onStatusChanged: onStatusChanged,
 	}
 	reload := func(config *Config) error {
-		return generateAndReloadConfigFile(config, logger)
+		return generateAndReloadConfigFile(config, configFile, logger)
 	}
 
 	debouncer(ctx, reload, res.reloadConfig, debounceTimeout, failureTimeout, logger)

@@ -14,12 +14,51 @@ import (
 	"time"
 
 	"github.com/go-kit/log"
+	"github.com/openperouter/openperouter/internal/ipfamily"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 const testData = "testdata/"
 
 var update = flag.Bool("update", false, "update .golden files")
+
+func TestBasic(t *testing.T) {
+	configFile := testSetup(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	frr := NewFRR(ctx, configFile, log.NewNopLogger())
+	defer cancel()
+
+	config := Config{
+		Underlay: UnderlayConfig{
+			MyASN: 64512,
+			VTEP:  "100.64.0.1/32",
+			Neighbors: []*NeighborConfig{
+				{
+					ASN:      64512,
+					Addr:     "192.168.1.2",
+					IPFamily: ipfamily.IPv4,
+				},
+			},
+		},
+		VNIs: []VNIConfig{
+			{
+				VRF: "red",
+				ASN: 64512,
+				VNI: 100,
+				LocalNeighbor: &NeighborConfig{
+					ASN:      64512,
+					Addr:     "192.168.1.2",
+					IPFamily: ipfamily.IPv4,
+				},
+			},
+		},
+	}
+	if err := frr.ApplyConfig(&config); err != nil {
+		t.Fatalf("Failed to apply config: %s", err)
+	}
+
+	testCheckConfigFile(t)
+}
 
 func testCompareFiles(t *testing.T, configFile, goldenFile string) {
 	var lastError error
@@ -64,9 +103,10 @@ func testGenerateFileNames(t *testing.T) (string, string) {
 	return filepath.Join(testData, filepath.FromSlash(t.Name())), filepath.Join(testData, filepath.FromSlash(t.Name())+".golden")
 }
 
-func testSetup(t *testing.T) {
+func testSetup(t *testing.T) string {
 	configFile, _ := testGenerateFileNames(t)
 	_ = os.Remove(configFile) // removing leftovers from previous runs
+	return configFile
 }
 
 func testCheckConfigFile(t *testing.T) {
@@ -84,18 +124,4 @@ func testCheckConfigFile(t *testing.T) {
 			t.Fatalf("Failed to verify the file %s", err)
 		}
 	}
-}
-
-func TestSingleSession(t *testing.T) {
-	testSetup(t)
-	ctx, cancel := context.WithCancel(context.Background())
-	frr := NewFRR(ctx, log.NewNopLogger())
-	defer cancel()
-
-	config := Config{}
-	if err := frr.ApplyConfig(&config); err != nil {
-		t.Fatalf("Failed to apply config: %s", err)
-	}
-
-	testCheckConfigFile(t)
 }

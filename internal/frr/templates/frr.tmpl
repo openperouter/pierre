@@ -32,22 +32,20 @@ router bgp {{ .Underlay.MyASN }}
   no bgp network import-check
   no bgp default ipv4-unicast
 
-{{- range .Neighbors }}
-{{- template "neighborsession" dict "neighbor" . "routerASN" $r.MyASN -}}
+{{- range $n := .Underlay.Neighbors }}
+{{- template "neighborsession" dict "neighbor" $n "routerASN" $.Underlay.MyASN -}}
 {{- end }}
-
-{{- range $n := .Neighbors -}}
+{{- range $n := .Underlay.Neighbors }}
 {{- template "neighborenableipfamily" . -}}
-{{end -}}
-
+{{end }}
   address-family ipv4 unicast
     network {{ .Underlay.VTEP }}
   exit-address-family
 
   address-family l2vpn evpn
-{{- range .Neighbors }}
+{{- range .Underlay.Neighbors }}
     neighbor {{ .Addr }} activate
-    neighbor {{ .Addr }} allowas-in-origin
+    neighbor {{ .Addr }} allowas-in origin
 {{- end }}
     advertise-all-vni
     advertise-svi-ip
@@ -55,13 +53,14 @@ router bgp {{ .Underlay.MyASN }}
 
 
 {{- range .VNIs }}
-  router bgp {{ .ASN }} vrf {{ .VRF }}
+
+router bgp {{ .ASN }} vrf {{ .VRF }}
   no bgp ebgp-requires-policy
   no bgp network import-check
   no bgp default ipv4-unicast
-  
+
   neighbor {{ .LocalNeighbor.Addr }} remote-as {{ .LocalNeighbor.ASN }}
-  
+
   address-family ipv4 unicast
     neighbor {{ .LocalNeighbor.Addr }} activate
     neighbor {{ .LocalNeighbor.Addr }} route-map allowall in
@@ -73,4 +72,4 @@ router bgp {{ .Underlay.MyASN }}
     advertise ipv6 unicast
   exit-address-family
 exit
-{{ - end }}
+{{- end }}

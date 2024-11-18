@@ -3,16 +3,8 @@ package frrconfig
 import (
 	"fmt"
 	"log/slog"
-	"os"
 	"os/exec"
-	"sync"
-	"time"
 )
-
-type Event struct {
-	When   time.Time
-	Config string
-}
 
 type Action string
 
@@ -22,23 +14,15 @@ const (
 	reloaderPath = "/usr/lib/frr/frr-reload.py"
 )
 
-var frrConfPath = "/etc/frr/frr.conf.new"
-var reloadMutex sync.Mutex
+const frrConfPath = "/etc/frr/frr.conf"
 
 // Config reloads the frr configuration at the given path.
-func Update(e Event) error {
-	reloadMutex.Lock()
-	defer reloadMutex.Unlock()
-
-	if err := os.WriteFile(frrConfPath, []byte(e.Config), 0666); err != nil {
-		return fmt.Errorf("failed to write the configuration file %w", err)
-	}
-
-	err := reloadAction(frrConfPath, Test)
+func Update(path string) error {
+	err := reloadAction(path, Test)
 	if err != nil {
 		return err
 	}
-	err = reloadAction(frrConfPath, Reload)
+	err = reloadAction(path, Reload)
 	if err != nil {
 		return err
 	}

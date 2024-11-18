@@ -30,6 +30,7 @@ spec:
         - "--nodename=$(NODE_NAME)"
         - "--loglevel=info"
         - "--namespace=$(NAMESPACE)"
+        - "--frrconfig="/etc/frr/frr.conf"
         image: router:latest
         imagePullPolicy: IfNotPresent
         name: controller
@@ -43,6 +44,9 @@ spec:
           subPath: containerd.sock
         - mountPath: /run/netns
           name: runns
+          mountPropagation: HostToContainer
+        -mountPath: /etc/frr/
+          name: frr-config
           mountPropagation: HostToContainer
         resources:
           limits:
@@ -61,7 +65,7 @@ spec:
       - name: frr-config
         hostPath:
           path: /etc/perouter/frr
-          type: Directory
+          type: DirectoryOrCreate
       serviceAccountName: controller
       hostNetwork: true
       hostPID: true

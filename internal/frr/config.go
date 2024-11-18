@@ -39,13 +39,12 @@ type reloadEvent struct {
 
 type UnderlayConfig struct {
 	MyASN     uint32
-	RouterID  string
-	Neighbors []*NeighborConfig
 	VTEP      string
+	Neighbors []*NeighborConfig
 }
 
 type VNIConfig struct {
-	ASN           string
+	ASN           uint32
 	LocalNeighbor *NeighborConfig
 	VRF           string
 	VNI           int
@@ -73,6 +72,7 @@ type NeighborConfig struct {
 	Password      string
 	BFDProfile    string
 	EBGPMultiHop  bool
+	IPFamily      ipfamily.Family
 }
 
 func (n *NeighborConfig) ID() string {
@@ -112,6 +112,9 @@ func templateConfig(data interface{}) (string, error) {
 				}
 				return false
 			},
+			"activateNeighborFor": func(ipFamily string, neighbourFamily ipfamily.Family) bool {
+				return string(neighbourFamily) == ipFamily
+			},
 		}).ParseFS(templates, "templates/*")
 	if err != nil {
 		return "", err
@@ -131,18 +134,14 @@ func writeConfig(config string, filename string) error {
 // generateAndReloadConfigFile takes a 'struct Config' and, using a template,
 // generates and writes a valid FRR configuration file. If this completes
 // successfully it will also force FRR to reload that configuration file.
-func generateAndReloadConfigFile(config *Config, l log.Logger) error {
-	filename, found := os.LookupEnv("FRR_CONFIG_FILE")
-	if found {
-		configFileName = filename
-	}
-
+func generateAndReloadConfigFile(config *Config, configFile string, l log.Logger) error {
 	configString, err := templateConfig(config)
 	if err != nil {
+		fmt.Println("FEDE err", err)
 		level.Error(l).Log("op", "reload", "error", err, "cause", "template", "config", config)
 		return err
 	}
-	err = writeConfig(configString, configFileName)
+	err = writeConfig(configString, configFile)
 	if err != nil {
 		level.Error(l).Log("op", "reload", "error", err, "cause", "writeConfig", "config", config)
 		return err

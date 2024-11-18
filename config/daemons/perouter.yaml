@@ -35,7 +35,7 @@ spec:
         volumeMounts:
           - name: frr-sockets
             mountPath: /var/run/frr
-          - name: frr-config
+          - name: frrconfig
             mountPath: /etc/frr
         # The command is FRR's default entrypoint & waiting for the log file to appear and tailing it.
         # If the log file isn't created in 60 seconds the tail fails and the container is restarted.
@@ -54,11 +54,13 @@ spec:
       - name: reloader
         image: quay.io/frrouting/frr:master
         command: ["/etc/frr_reloader/reloader"]
+        args:
+        - "--frrconfig=/etc/perouter/frr.conf"
         volumeMounts:
           - name: frr-sockets
             mountPath: /var/run/frr
-          - name: frr-config
-            mountPath: /etc/frr
+          - name: frrsharedconfig
+            mountPath: /etc/perouter
           - name: reloader
             mountPath: /etc/frr_reloader
       tolerations:
@@ -76,10 +78,12 @@ spec:
             name: frr-startup
         - name: reloader
           emptyDir: {}
-        - name: frr-config
+        - name: frrsharedconfig
           hostPath:
             path: /etc/perouter/frr
-            type: Directory
+            type: DirectoryOrCreate
+        - name: frrconfig
+          emptyDir: {}
       initContainers:
         # Copies the initial config files with the right permissions to the shared volume.
         - name: cp-frr-files
@@ -91,7 +95,7 @@ spec:
           volumeMounts:
             - name: frr-startup
               mountPath: /tmp/frr
-            - name: frr-config
+            - name: frrconfig
               mountPath: /etc/frr
         # Copies the reloader to the shared volume between the k8s-frr controller and reloader.
         - name: cp-reloader

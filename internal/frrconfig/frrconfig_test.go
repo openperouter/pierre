@@ -33,8 +33,7 @@ func TestReload(t *testing.T) {
 
 	for tc, params := range tests {
 		t.Run(fmt.Sprintf("reload %s", tc), func(t *testing.T) {
-			frrConfPath = tc
-			err := Update(Event{Config: "hello"})
+			err := Update(tc)
 			if (params.failReload || params.failValidate) && err == nil {
 				t.Fatalf("expecting failure, got no error")
 			}

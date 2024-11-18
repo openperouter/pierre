@@ -10,17 +10,17 @@ import (
 )
 
 func TestHandler(t *testing.T) {
-	reloadSucceeds := func(_ frrconfig.Event) error {
+	reloadSucceeds := func(_ string) error {
 		return nil
 	}
 
-	reloadFails := func(_ frrconfig.Event) error {
+	reloadFails := func(_ string) error {
 		return errors.New("failed")
 	}
 
 	tests := []struct {
 		name       string
-		reloadMock func(frrconfig.Event) error
+		reloadMock func(string) error
 		method     string
 		httpStatus int
 	}{
