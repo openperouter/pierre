@@ -22,15 +22,19 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	periov1alpha1 "github.com/openperouter/openperouter/api/v1alpha1"
+	v1 "k8s.io/api/core/v1"
 )
 
 // UnderlayReconciler reconciles a Underlay object
 type UnderlayReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	Node   string
 }
 
 // +kubebuilder:rbac:groups=per.io.openperouter.github.io,resources=underlays,verbs=get;list;watch;create;update;patch;delete
@@ -49,6 +53,14 @@ type UnderlayReconciler struct {
 func (r *UnderlayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
 
+	var pods v1.PodList
+	if err := r.List(ctx, &pods, client.MatchingLabels{"app": "router"},
+		client.MatchingFields{
+			"spec.NodeName": r.Node,
+		}); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	// TODO(user): your logic here
 
 	return ctrl.Result{}, nil
@@ -56,8 +68,24 @@ func (r *UnderlayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *UnderlayReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	p := predicate.NewPredicateFuncs(func(object client.Object) bool {
+		switch o := object.(type) {
+		case *v1.Pod:
+			if o.Spec.NodeName != r.Node {
+				return false
+			}
+			return true
+		default:
+			return true
+		}
+
+	})
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&periov1alpha1.Underlay{}).
+		Watches(&v1.Pod{}, &handler.EnqueueRequestForObject{}).
+		Watches(&periov1alpha1.VNI{}, &handler.EnqueueRequestForObject{}).
+		WithEventFilter(p).
 		Named("underlay").
 		Complete(r)
 }
