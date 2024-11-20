@@ -25,11 +25,10 @@ import (
 
 // VNISpec defines the desired state of VNI.
 type VNISpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// Foo is an example field of VNI. Edit vni_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	ASN           uint32   `json:"asn,omitempty"`
+	LocalNeighbor Neighbor `json:"asn,omitempty"`
+	VNI           uint32   `json:"asn,omitempty"`
+	LocalCIDR     string   `json:"localip,omitempty"`
 }
 
 // VNIStatus defines the observed state of VNI.
