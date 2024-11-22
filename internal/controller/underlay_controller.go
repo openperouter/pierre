@@ -18,12 +18,12 @@ package controller
 
 import (
 	"context"
+	"log/slog"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	periov1alpha1 "github.com/openperouter/openperouter/api/v1alpha1"
@@ -34,10 +34,11 @@ import (
 type UnderlayReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
-	Node   string
+	MyNode string
 }
 
-// +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
 // +kubebuilder:rbac:groups=per.io.openperouter.github.io,resources=vnis,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=per.io.openperouter.github.io,resources=vnis/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=per.io.openperouter.github.io,resources=vnis/finalizers,verbs=update
@@ -55,16 +56,17 @@ type UnderlayReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.1/pkg/reconcile
 func (r *UnderlayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	slog.Info("controller", "UnderlayReconciler", "start reconcile", req.NamespacedName.String())
+	defer slog.Info("controller", "UnderlayReconciler", "end reconcile", req.NamespacedName.String())
 
-	var pods v1.PodList
-	if err := r.List(ctx, &pods, client.MatchingLabels{"app": "router"},
-		client.MatchingFields{
-			"spec.NodeName": r.Node,
-		}); err != nil {
-		return ctrl.Result{}, err
+	nodeIndex, err := nodeIndex(ctx, r.Client, r.MyNode)
+	if err != nil {
+		slog.Error("failed to fetch node index", "node", r.MyNode, "error", err)
 	}
-
+	routerPod, err := routerPodForNode(ctx, r.Client, r.MyNode)
+	if err != nil {
+		slog.Error("failed to fetch router pod", "node", r.MyNode, "error", err)
+	}
 	// TODO(user): your logic here
 
 	return ctrl.Result{}, nil
@@ -75,7 +77,7 @@ func (r *UnderlayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	p := predicate.NewPredicateFuncs(func(object client.Object) bool {
 		switch o := object.(type) {
 		case *v1.Pod:
-			if o.Spec.NodeName != r.Node {
+			if o.Spec.NodeName != r.MyNode {
 				return false
 			}
 			return true

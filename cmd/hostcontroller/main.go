@@ -131,15 +131,9 @@ func main() {
 	if err = (&controller.UnderlayReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		MyNode: nodeName,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Underlay")
-		os.Exit(1)
-	}
-	if err = (&controller.VNIReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "VNI")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
