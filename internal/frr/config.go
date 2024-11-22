@@ -40,7 +40,7 @@ type reloadEvent struct {
 type UnderlayConfig struct {
 	MyASN     uint32
 	VTEP      string
-	Neighbors []*NeighborConfig
+	Neighbors []NeighborConfig
 }
 
 type VNIConfig struct {

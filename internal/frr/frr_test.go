@@ -29,7 +29,7 @@ func TestBasic(t *testing.T) {
 		Underlay: UnderlayConfig{
 			MyASN: 64512,
 			VTEP:  "100.64.0.1/32",
-			Neighbors: []*NeighborConfig{
+			Neighbors: []NeighborConfig{
 				{
 					ASN:      64512,
 					Addr:     "192.168.1.2",

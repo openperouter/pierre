@@ -63,8 +63,8 @@ type UnderlayReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.1/pkg/reconcile
 func (r *UnderlayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	slog.Info("controller", "UnderlayReconciler", "start reconcile", req.NamespacedName.String())
-	defer slog.Info("controller", "UnderlayReconciler", "end reconcile", req.NamespacedName.String())
+	slog.Info("controller", "UnderlayReconciler", "start reconcile", "request", req.NamespacedName.String())
+	defer slog.Info("controller", "UnderlayReconciler", "end reconcile", "request", req.NamespacedName.String())
 
 	nodeIndex, err := nodeIndex(ctx, r.Client, r.MyNode)
 	if err != nil {
@@ -115,7 +115,7 @@ type frrConfigData struct {
 
 func reloadFRRConfig(data frrConfigData) error {
 	slog.Debug("reloading FRR config", "config", data)
-	frrConfig, err := conversion.APItoFRR(data.underlays, data.vnis)
+	frrConfig, err := conversion.APItoFRR(data.nodeIndex, data.underlays, data.vnis)
 	if err != nil {
 		return fmt.Errorf("failed to generate the frr configuration: %w", err)
 	}

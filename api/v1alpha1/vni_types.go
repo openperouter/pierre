@@ -26,8 +26,9 @@ import (
 // VNISpec defines the desired state of VNI.
 type VNISpec struct {
 	ASN           uint32   `json:"asn,omitempty"`
-	LocalNeighbor Neighbor `json:"asn,omitempty"`
-	VNI           uint32   `json:"asn,omitempty"`
+	VRF           string   `json:"vrf,omitempty"`
+	LocalNeighbor Neighbor `json:"localNeighbor,omitempty"`
+	VNI           uint32   `json:"vni,omitempty"`
 	LocalCIDR     string   `json:"localip,omitempty"`
 }
 

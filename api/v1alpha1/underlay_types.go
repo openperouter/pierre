@@ -23,7 +23,7 @@ import (
 // UnderlaySpec defines the desired state of Underlay.
 type UnderlaySpec struct {
 	ASN       uint32     `json:"asn,omitempty"`
-	VTEP      string     `json:"vtep,omitempty"`
+	VTEPCIDR  string     `json:"vtepcidr,omitempty"`
 	Neighbors []Neighbor `json:"neighbors,omitempty"`
 	Nic       string     `json:"nic,omitempty"`
 }

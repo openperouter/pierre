@@ -19,8 +19,12 @@ ip assignement: vtep, veths
 
 status
 ipam: current mechanism is fragile
-manual assign: a per VRF per node CRD
+manual assign: a per VRF per node CRD. Also, vtep per node manual
 
 
 define loglevel and propagate it to the frr package
 add context to the reloaedr logic
+
+bgp passwords
+
+ipam count validation

@@ -39,9 +39,88 @@ spec:
           spec:
             description: UnderlaySpec defines the desired state of Underlay.
             properties:
-              foo:
-                description: Foo is an example field of Underlay. Edit underlay_types.go
-                  to remove/update
+              asn:
+                format: int32
+                type: integer
+              neighbors:
+                items:
+                  description: Neighbor represents a BGP Neighbor we want FRR to connect
+                    to.
+                  properties:
+                    address:
+                      description: Address is the IP address to establish the session
+                        with.
+                      type: string
+                    asn:
+                      description: |-
+                        ASN is the AS number to use for the local end of the session.
+                        ASN and DynamicASN are mutually exclusive and one of them must be specified.
+                      format: int32
+                      maximum: 4294967295
+                      minimum: 0
+                      type: integer
+                    bfdProfile:
+                      description: |-
+                        BFDProfile is the name of the BFD Profile to be used for the BFD session associated
+                        to the BGP session. If not set, the BFD session won't be set up.
+                      type: string
+                    connectTime:
+                      description: Requested BGP connect time, controls how long BGP
+                        waits between connection attempts to a neighbor.
+                      type: string
+                      x-kubernetes-validations:
+                      - message: connect time should be between 1 seconds to 65535
+                        rule: duration(self).getSeconds() >= 1 && duration(self).getSeconds()
+                          <= 65535
+                      - message: connect time should contain a whole number of seconds
+                        rule: duration(self).getMilliseconds() % 1000 == 0
+                    ebgpMultiHop:
+                      description: EBGPMultiHop indicates if the BGPPeer is multi-hops
+                        away.
+                      type: boolean
+                    holdTime:
+                      description: |-
+                        HoldTime is the requested BGP hold time, per RFC4271.
+                        Defaults to 180s.
+                      type: string
+                    keepaliveTime:
+                      description: |-
+                        KeepaliveTime is the requested BGP keepalive time, per RFC4271.
+                        Defaults to 60s.
+                      type: string
+                    password:
+                      description: |-
+                        Password to be used for establishing the BGP session.
+                        Password and PasswordSecret are mutually exclusive.
+                      type: string
+                    passwordSecret:
+                      description: |-
+                        PasswordSecret is name of the authentication secret for the neighbor.
+                        the secret must be of type "kubernetes.io/basic-auth", and created in the
+                        same namespace as the frr-k8s daemon. The password is stored in the
+                        secret as the key "password".
+                        Password and PasswordSecret are mutually exclusive.
+                      type: string
+                    port:
+                      description: |-
+                        Port is the port to dial when establishing the session.
+                        Defaults to 179.
+                      maximum: 16384
+                      minimum: 0
+                      type: integer
+                    sourceaddress:
+                      description: |-
+                        SourceAddress is the IPv4 or IPv6 source address to use for the BGP
+                        session to this neighbour, may be specified as either an IP address
+                        directly or as an interface name
+                      type: string
+                  required:
+                  - address
+                  type: object
+                type: array
+              nic:
+                type: string
+              vtepcidr:
                 type: string
             type: object
           status:
