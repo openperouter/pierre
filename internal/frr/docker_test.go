@@ -11,7 +11,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"errors"
 
@@ -29,7 +28,6 @@ const (
 
 func TestMain(m *testing.M) {
 	// override reloadConfig so it doesn't try to reload it.
-	debounceTimeout = time.Millisecond
 
 	flag.Parse()
 	if !testing.Short() {

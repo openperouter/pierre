@@ -13,7 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-kit/log"
 	"github.com/openperouter/openperouter/internal/ipfamily"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
@@ -24,9 +23,7 @@ var update = flag.Bool("update", false, "update .golden files")
 
 func TestBasic(t *testing.T) {
 	configFile := testSetup(t)
-	ctx, cancel := context.WithCancel(context.Background())
-	frr := NewFRR(ctx, configFile, log.NewNopLogger())
-	defer cancel()
+	updater := testUpdater(configFile)
 
 	config := Config{
 		Underlay: UnderlayConfig{
@@ -53,7 +50,7 @@ func TestBasic(t *testing.T) {
 			},
 		},
 	}
-	if err := frr.ApplyConfig(&config); err != nil {
+	if err := ApplyConfig(&config, updater); err != nil {
 		t.Fatalf("Failed to apply config: %s", err)
 	}
 
@@ -123,5 +120,15 @@ func testCheckConfigFile(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to verify the file %s", err)
 		}
+	}
+}
+
+func testUpdater(configFile string) func(config string) error {
+	return func(config string) error {
+		err := os.WriteFile(configFile, []byte(config), 0600)
+		if err != nil {
+			return fmt.Errorf("failed to write the config to %s", configFile)
+		}
+		return nil
 	}
 }

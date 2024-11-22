@@ -8,7 +8,7 @@ import (
 	"embed"
 	"errors"
 	"fmt"
-	"os"
+	"log/slog"
 	"reflect"
 	"text/template"
 	"time"
@@ -125,25 +125,18 @@ func templateConfig(data interface{}) (string, error) {
 	return b.String(), err
 }
 
-// writeConfigFile writes the FRR configuration file (represented as a string)
-// to 'filename'.
-func writeConfig(config string, filename string) error {
-	return os.WriteFile(filename, []byte(config), 0600)
-}
-
 // generateAndReloadConfigFile takes a 'struct Config' and, using a template,
 // generates and writes a valid FRR configuration file. If this completes
 // successfully it will also force FRR to reload that configuration file.
-func generateAndReloadConfigFile(config *Config, configFile string, l log.Logger) error {
+func generateAndReloadConfigFile(config *Config, updater ConfigUpdater) error {
 	configString, err := templateConfig(config)
 	if err != nil {
-		fmt.Println("FEDE err", err)
-		level.Error(l).Log("op", "reload", "error", err, "cause", "template", "config", config)
+		slog.Error("op", "reload", "error", err, "cause", "template", "config", config)
 		return err
 	}
-	err = writeConfig(configString, configFile)
+	err = updater(configString)
 	if err != nil {
-		level.Error(l).Log("op", "reload", "error", err, "cause", "writeConfig", "config", config)
+		slog.Error("op", "reload", "error", err, "cause", "updater", "config", config)
 		return err
 	}
 

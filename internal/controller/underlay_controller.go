@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -26,15 +27,21 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
+	"github.com/openperouter/openperouter/api/v1alpha1"
 	periov1alpha1 "github.com/openperouter/openperouter/api/v1alpha1"
+	"github.com/openperouter/openperouter/internal/conversion"
+	"github.com/openperouter/openperouter/internal/frr"
+	"github.com/openperouter/openperouter/internal/frrconfig"
 	v1 "k8s.io/api/core/v1"
 )
 
 // UnderlayReconciler reconciles a Underlay object
 type UnderlayReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
-	MyNode string
+	Scheme     *runtime.Scheme
+	MyNode     string
+	FRRConfig  string
+	ReloadPort int
 }
 
 // +kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch
@@ -62,14 +69,64 @@ func (r *UnderlayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	nodeIndex, err := nodeIndex(ctx, r.Client, r.MyNode)
 	if err != nil {
 		slog.Error("failed to fetch node index", "node", r.MyNode, "error", err)
+		return ctrl.Result{}, err
 	}
 	routerPod, err := routerPodForNode(ctx, r.Client, r.MyNode)
 	if err != nil {
 		slog.Error("failed to fetch router pod", "node", r.MyNode, "error", err)
+		return ctrl.Result{}, err
 	}
-	// TODO(user): your logic here
+
+	var underlays v1alpha1.UnderlayList
+	if err := r.Client.List(ctx, &underlays); err != nil {
+		slog.Error("failed to list underlays", "error", err)
+		return ctrl.Result{}, err
+	}
+
+	var vnis v1alpha1.VNIList
+	if err := r.Client.List(ctx, &vnis); err != nil {
+		slog.Error("failed to list vnis", "error", err)
+		return ctrl.Result{}, err
+	}
+
+	if err := reloadFRRConfig(frrConfigData{
+		configFile: r.FRRConfig,
+		address:    routerPod.Status.PodIP,
+		port:       r.ReloadPort,
+		nodeIndex:  nodeIndex,
+		underlays:  underlays.Items,
+		vnis:       vnis.Items,
+	}); err != nil {
+		slog.Error("failed to reload frr config", "error", err)
+		return ctrl.Result{}, err
+	}
 
 	return ctrl.Result{}, nil
+}
+
+type frrConfigData struct {
+	configFile string
+	address    string
+	port       int
+	nodeIndex  int
+	underlays  []v1alpha1.Underlay
+	vnis       []v1alpha1.VNI
+}
+
+func reloadFRRConfig(data frrConfigData) error {
+	slog.Debug("reloading FRR config", "config", data)
+	frrConfig, err := conversion.APItoFRR(data.underlays, data.vnis)
+	if err != nil {
+		return fmt.Errorf("failed to generate the frr configuration: %w", err)
+	}
+
+	url := fmt.Sprintf("%s:%d", data.address, data.port)
+	updater := frrconfig.UpdaterForAddress(url, data.configFile)
+	err = frr.ApplyConfig(&frrConfig, updater)
+	if err != nil {
+		return fmt.Errorf("failed to update the frr configuration: %w", err)
+	}
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

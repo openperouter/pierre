@@ -61,6 +61,8 @@ func main() {
 		nodeName      string
 		namespace     string
 		logLevel      string
+		frrConfigPath string
+		reloadPort    int
 	)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
@@ -72,6 +74,8 @@ func main() {
 	flag.StringVar(&nodeName, "nodename", "", "The name of the node the controller runs on")
 	flag.StringVar(&namespace, "namespace", "", "The namespace the controller runs in")
 	flag.StringVar(&logLevel, "loglevel", "info", "the verbosity of the process1")
+	flag.StringVar(&frrConfigPath, "frrconfig", "/etc/perouter/frr/frr.conf", "the location of the frr configuration file")
+	flag.IntVar(&reloadPort, "reloadport", 8080, "the port of the reloader process")
 
 	opts := zap.Options{
 		Development: true,
@@ -129,9 +133,11 @@ func main() {
 	}
 
 	if err = (&controller.UnderlayReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		MyNode: nodeName,
+		Client:     mgr.GetClient(),
+		Scheme:     mgr.GetScheme(),
+		MyNode:     nodeName,
+		FRRConfig:  frrConfigPath,
+		ReloadPort: reloadPort,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Underlay")
 		os.Exit(1)

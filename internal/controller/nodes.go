@@ -11,10 +11,7 @@ import (
 
 func nodeIndex(ctx context.Context, cli client.Client, node string) (int, error) {
 	var nodes v1.NodeList
-	if err := cli.List(ctx, &nodes, client.MatchingLabels{"app": "router"},
-		client.MatchingFields{
-			"spec.NodeName": node,
-		}); err != nil {
+	if err := cli.List(ctx, &nodes); err != nil {
 		return 0, fmt.Errorf("failed to get router pod for node %s: %v", node, err)
 	}
 

@@ -41,7 +41,6 @@ func main() {
 
 var updateConfig = frrconfig.Update
 
-// TODO serialize: multiple posts can come together
 func reloadHandler(w http.ResponseWriter, req *http.Request) {
 	if req.Method != http.MethodPost {
 		http.Error(w, "invalid method", http.StatusBadRequest)
