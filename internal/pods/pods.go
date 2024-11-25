@@ -1,4 +1,4 @@
-package cri
+package pods
 
 import (
 	"context"
@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/opencontainers/runtime-spec/specs-go"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	cri "k8s.io/cri-api/pkg/apis/runtime/v1"
@@ -56,7 +55,7 @@ func NewRuntime(socketPath string, timeout time.Duration) (*Runtime, error) {
 }
 
 func (r *Runtime) NetworkNamespace(ctx context.Context, podUID string) (string, error) {
-	podSandboxID, err := r.PodSandboxID(ctx, podUID)
+	podSandboxID, err := r.podSandboxID(ctx, podUID)
 	if err != nil {
 		return "", err
 	}
@@ -79,7 +78,7 @@ func (r *Runtime) NetworkNamespace(ctx context.Context, podUID string) (string, 
 	networkNamespace := ""
 
 	for _, namespace := range sandboxInfo.RuntimeSpec.Linux.Namespaces {
-		if namespace.Type != specs.NetworkNamespace {
+		if namespace.Type != runtimespec.NetworkNamespace {
 			continue
 		}
 
@@ -96,7 +95,7 @@ func (r *Runtime) NetworkNamespace(ctx context.Context, podUID string) (string, 
 
 func (r *Runtime) podSandboxID(ctx context.Context, podUID string) (string, error) {
 	// Labels used by Kubernetes: https://github.com/kubernetes/kubernetes/blob/v1.29.2/staging/src/k8s.io/kubelet/pkg/types/labels.go#L19
-	ListPodSandboxRequest, err := r.Client.ListPodSandbox(ctx, &cri.ListPodSandboxRequest{
+	podSandbox, err := r.Client.ListPodSandbox(ctx, &cri.ListPodSandboxRequest{
 		Filter: &cri.PodSandboxFilter{
 			LabelSelector: map[string]string{
 				types.KubernetesPodUIDLabel: podUID,
@@ -107,15 +106,15 @@ func (r *Runtime) podSandboxID(ctx context.Context, podUID string) (string, erro
 		return "", fmt.Errorf("failed to ListPodSandbox for pod %s: %w", podUID, err)
 	}
 
-	if ListPodSandboxRequest == nil || ListPodSandboxRequest.Items == nil || len(ListPodSandboxRequest.Items) == 0 {
+	if podSandbox == nil || podSandbox.Items == nil || len(podSandbox.Items) == 0 {
 		return "", fmt.Errorf("ListPodSandbox returned 0 item for pod %s", podUID)
 	}
 
-	if len(ListPodSandboxRequest.Items) > 1 {
+	if len(podSandbox.Items) > 1 {
 		return "", fmt.Errorf("ListPodSandbox returned more than 1 item for pod %s", podUID)
 	}
 
-	return ListPodSandboxRequest.Items[0].Id, nil
+	return podSandbox.Items[0].Id, nil
 }
 
 func connect(socketPath string, timeout time.Duration) (*grpc.ClientConn, error) {

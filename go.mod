@@ -10,6 +10,7 @@ require (
 	github.com/onsi/gomega v1.33.1
 	github.com/opencontainers/runtime-spec v1.0.3-0.20210326190908-1c3f411f0417
 	github.com/ory/dockertest/v3 v3.11.0
+	github.com/vishvananda/netlink v1.1.0
 	google.golang.org/grpc v1.65.0
 	k8s.io/api v0.31.3
 	k8s.io/apimachinery v0.31.3
@@ -84,6 +85,7 @@ require (
 	github.com/spf13/cobra v1.8.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stoewer/go-strcase v1.2.0 // indirect
+	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
