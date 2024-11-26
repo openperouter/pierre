@@ -7,8 +7,8 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
-// CreateVRF creates a new VRF and sets it up.
-func CreateVRF(name string) (*netlink.Vrf, error) {
+// createVRF creates a new VRF and sets it up.
+func createVRF(name string) (*netlink.Vrf, error) {
 	links, err := netlink.LinkList()
 	if err != nil {
 		return nil, fmt.Errorf("createVRF: Failed to find links %v", err)
