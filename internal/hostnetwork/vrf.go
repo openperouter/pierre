@@ -7,22 +7,6 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
-func findFreeRoutingTableID(links []netlink.Link) (uint32, error) {
-	takenTables := make(map[uint32]struct{}, len(links))
-	for _, l := range links {
-		if vrf, ok := l.(*netlink.Vrf); ok {
-			takenTables[vrf.Table] = struct{}{}
-		}
-	}
-
-	for res := uint32(1); res < math.MaxUint32; res++ {
-		if _, ok := takenTables[res]; !ok {
-			return res, nil
-		}
-	}
-	return 0, fmt.Errorf("findFreeRoutingTableID: Failed to find an available routing id")
-}
-
 // CreateVRF creates a new VRF and sets it up.
 func CreateVRF(name string) (*netlink.Vrf, error) {
 	links, err := netlink.LinkList()
@@ -52,4 +36,20 @@ func CreateVRF(name string) (*netlink.Vrf, error) {
 	}
 
 	return vrf, nil
+}
+
+func findFreeRoutingTableID(links []netlink.Link) (uint32, error) {
+	takenTables := make(map[uint32]struct{}, len(links))
+	for _, l := range links {
+		if vrf, ok := l.(*netlink.Vrf); ok {
+			takenTables[vrf.Table] = struct{}{}
+		}
+	}
+
+	for res := uint32(1); res < math.MaxUint32; res++ {
+		if _, ok := takenTables[res]; !ok {
+			return res, nil
+		}
+	}
+	return 0, fmt.Errorf("findFreeRoutingTableID: Failed to find an available routing id")
 }
