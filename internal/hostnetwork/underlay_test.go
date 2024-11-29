@@ -22,33 +22,12 @@ func TestUnderlay(t *testing.T) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	currentNs, err := netns.Get()
-	if err != nil {
-		t.Fatalf("failed to create new ns %s", err)
-	}
-
-	newNs, err := netns.NewNamed(vniTestNS)
-	if err != nil {
-		t.Fatalf("failed to create new ns %s", err)
-	}
-
-	t.Cleanup(func() {
-		currentNs.Close()
-		newNs.Close()
-		Clean(t)
-	})
-
-	err = netns.Set(currentNs)
-	if err != nil {
-		t.Fatalf("failed to restore to current ns %s", err)
-	}
-
 	toMove := &netlink.Dummy{
 		LinkAttrs: netlink.LinkAttrs{
 			Name: vniTestInterface,
 		},
 	}
-	err = netlink.LinkAdd(toMove)
+	err := netlink.LinkAdd(toMove)
 	if err != nil {
 		t.Fatalf("failed to create interface %s: %v", toMove.Attrs().Name, err)
 	}
@@ -57,6 +36,8 @@ func TestUnderlay(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to assign ip to current interface: %v", err)
 	}
+
+	_, newNs := createTestNS(t, vniTestNS)
 
 	params := UnderlayParams{
 		MainNic:  vniTestInterface,
@@ -131,4 +112,29 @@ func Clean(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to delete link %s: %v", vniTestInterface, err)
 	}
+}
+
+func createTestNS(t *testing.T, testNs string) (netns.NsHandle, netns.NsHandle) {
+	t.Helper()
+	currentNs, err := netns.Get()
+	if err != nil {
+		t.Fatalf("failed to create new ns %s", err)
+	}
+
+	newNs, err := netns.NewNamed(vniTestNS)
+	if err != nil {
+		t.Fatalf("failed to create new ns %s", err)
+	}
+
+	t.Cleanup(func() {
+		currentNs.Close()
+		newNs.Close()
+		Clean(t)
+	})
+
+	err = netns.Set(currentNs)
+	if err != nil {
+		t.Fatalf("failed to restore to current ns %s", err)
+	}
+	return currentNs, newNs
 }
