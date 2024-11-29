@@ -2,7 +2,6 @@ package hostnetwork
 
 import (
 	"fmt"
-	"runtime"
 
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
@@ -15,7 +14,7 @@ type UnderlayParams struct {
 }
 
 func SetupUnderlay(params UnderlayParams) error {
-	ns, err := netns.GetFromPath(params.TargetNS)
+	ns, err := netns.GetFromName(params.TargetNS)
 	if err != nil {
 		return fmt.Errorf("setupUnderlay: Failed to find network namespace %s: %w", params.TargetNS, err)
 	}
@@ -26,27 +25,13 @@ func SetupUnderlay(params UnderlayParams) error {
 		return err
 	}
 
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-
-	// Save the current network namespace
-	origns, err := netns.Get()
-	if err != nil {
-		return fmt.Errorf("setupUnderlay: Failed to get current network namespace")
-	}
-	defer origns.Close()
-
-	err = netns.Set(ns)
-	if err != nil {
-		return fmt.Errorf("setupUnderlay: Failed to set current network namespace to %s", ns.String())
-	}
-	defer func() { netns.Set(origns) }()
-
-	err = assignVTEPToLoopback(params.VtepIP)
-	if err != nil {
-		return err
-	}
-
+	inNamespace(ns, func() error {
+		err = assignVTEPToLoopback(params.VtepIP)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
 	return nil
 }
 
@@ -73,9 +58,23 @@ func moveNicToNamespace(nic string, ns netns.NsHandle) error {
 		return fmt.Errorf("setupUnderlay: Failed to find link %s: %w", nic, err)
 	}
 
+	addresses, err := netlink.AddrList(link, netlink.FAMILY_ALL)
+	if err != nil {
+		return fmt.Errorf("setupUnderlay: Failed to get addresses for nic %s: %w", link.Attrs().Name, err)
+	}
+
 	err = netlink.LinkSetNsFd(link, int(ns))
 	if err != nil {
 		return fmt.Errorf("setupUnderlay: Failed to move %s to network namespace %s: %w", link.Attrs().Name, ns.String(), err)
 	}
+	inNamespace(ns, func() error {
+		for _, a := range addresses {
+			err := netlink.AddrAdd(link, &a)
+			if err != nil {
+				return fmt.Errorf("moveNicToNamespace: Failed to add address %s to %s", a, link)
+			}
+		}
+		return nil
+	})
 	return nil
 }

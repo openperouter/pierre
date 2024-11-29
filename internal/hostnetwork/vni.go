@@ -133,13 +133,13 @@ func createVeth(name string) (netlink.Link, netlink.Link, error) {
 }
 
 func assignIPToInterface(link netlink.Link, address string) error {
-	hostAddr, err := netlink.ParseAddr(address)
+	addr, err := netlink.ParseAddr(address)
 	if err != nil {
-		return fmt.Errorf("SetupVNI: failed to parse host address for veth %s", address)
+		return fmt.Errorf("SetupVNI: failed to parse address %s for interface %s", address, link.Attrs().Name)
 	}
-	err = netlink.AddrAdd(link, hostAddr)
+	err = netlink.AddrAdd(link, addr)
 	if err != nil {
-		return fmt.Errorf("SetupVNI: failed to add address %s to host veth %s", address, link.Attrs().Name)
+		return fmt.Errorf("SetupVNI: failed to add address %s to interface %s, err %v", address, link.Attrs().Name, err)
 	}
 	return nil
 }
