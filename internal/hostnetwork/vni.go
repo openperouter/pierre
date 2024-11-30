@@ -95,6 +95,10 @@ func SetupVNI(params vniParams) error {
 		SrcAddr:      net.ParseIP(params.VTEPIP),
 		VtepDevIndex: loopback.Attrs().Index,
 	}
+	err = netlink.LinkAdd(vxlan)
+	if err != nil {
+		return fmt.Errorf("failed to create vxlan %s: %w", vxlan.Name, err)
+	}
 	err = addrGenModeNone(vxlan)
 	if err != nil {
 		return fmt.Errorf("failed to set addr_gen_mode to 1 for %s: %w", vxlan.Name, err)
