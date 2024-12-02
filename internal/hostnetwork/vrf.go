@@ -1,33 +1,49 @@
 package hostnetwork
 
 import (
+	"errors"
 	"fmt"
 	"math"
+	"os"
 
 	"github.com/vishvananda/netlink"
 )
 
 // createVRF creates a new VRF and sets it up.
 func createVRF(name string) (*netlink.Vrf, error) {
-	links, err := netlink.LinkList()
-	if err != nil {
-		return nil, fmt.Errorf("createVRF: Failed to find links %v", err)
+
+	vrf := &netlink.Vrf{}
+	link, err := netlink.LinkByName(name)
+	if err != nil && errors.Is(err, os.ErrNotExist) {
+		links, err := netlink.LinkList()
+		if err != nil {
+			return nil, fmt.Errorf("createVRF: Failed to find links %v", err)
+		}
+
+		tableID, err := findFreeRoutingTableID(links)
+		if err != nil {
+			return nil, err
+		}
+
+		vrf = &netlink.Vrf{
+			LinkAttrs: netlink.LinkAttrs{Name: name},
+			Table:     tableID,
+		}
+
+		err = netlink.LinkAdd(vrf)
+		if err != nil {
+			return nil, fmt.Errorf("could not add VRF %s: %v", name, err)
+		}
+
+	}
+	vrf, ok := link.(*netlink.Vrf)
+	if !ok {
+		err := netlink.LinkDel(link)
+		if err != nil {
+			return nil, fmt.Errorf("failed to delete link %v: %w", link, err)
+		}
 	}
 
-	tableID, err := findFreeRoutingTableID(links)
-	if err != nil {
-		return nil, err
-	}
-
-	vrf := &netlink.Vrf{
-		LinkAttrs: netlink.LinkAttrs{Name: name},
-		Table:     tableID,
-	}
-
-	err = netlink.LinkAdd(vrf)
-	if err != nil {
-		return nil, fmt.Errorf("could not add VRF %s: %v", name, err)
-	}
 	err = netlink.LinkSetUp(vrf)
 	if err != nil {
 		return nil, fmt.Errorf("could not set link up for VRF %s: %v", name, err)

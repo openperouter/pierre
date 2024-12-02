@@ -1,10 +1,10 @@
 package hostnetwork
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"os"
-	"runtime"
 
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netlink/nl"
@@ -23,6 +23,11 @@ type vniParams struct {
 }
 
 func SetupVNI(params vniParams) error {
+	ns, err := netns.GetFromName(params.TargetNS)
+	if err != nil {
+		return fmt.Errorf("SetupVNI: Failed to get network namespace %s", params.TargetNS)
+	}
+
 	hostVeth, peVeth, err := createVeth(params.Name)
 	if err != nil {
 		return err
@@ -32,57 +37,112 @@ func SetupVNI(params vniParams) error {
 		return err
 	}
 
-	loopback, err := netlink.LinkByName("lo")
-	if err != nil {
-		return fmt.Errorf("failed to get loopback by name: %w", err)
-	}
-
-	ns, err := netns.GetFromName(params.TargetNS)
-	if err != nil {
-		return fmt.Errorf("SetupVNI: Failed to get network namespace %s", params.TargetNS)
-	}
-
 	err = netlink.LinkSetNsFd(peVeth, int(ns))
 	if err != nil {
 		return fmt.Errorf("setupUnderlay: Failed to move %s to network namespace %s: %w", peVeth.Attrs().Name, ns.String(), err)
 	}
 
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
+	err = inNamespace(ns, func() error {
+		err = assignIPToInterface(peVeth, params.VethNSIP)
+		if err != nil {
+			return err
+		}
 
-	// Save the current network namespace
-	origns, err := netns.Get()
-	if err != nil {
-		return fmt.Errorf("SetupVNI: Failed to get current network namespace")
-	}
-	defer origns.Close()
+		vrf, err := createVRF(params.Name)
+		if err != nil {
+			return err
+		}
 
-	err = netns.Set(ns)
-	if err != nil {
-		return fmt.Errorf("setupVNI: Failed to set current network namespace to %s", ns.String())
-	}
-	defer func() { netns.Set(origns) }()
+		bridge, err := setupBridge(params, vrf)
+		if err != nil {
+			return err
+		}
 
-	err = assignIPToInterface(peVeth, params.VethNSIP)
-	if err != nil {
-		return err
+		err = setupVXLan(params, bridge)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+
+	return nil
+}
+
+func addVeth(name string) (netlink.Link, netlink.Link, error) {
+	hostSide := name + "host"
+	peSide := name + "pe"
+
+	vethHost := &netlink.Veth{}
+	link, err := netlink.LinkByName(hostSide)
+	if err != nil && errors.Is(err, os.ErrNotExist) {
+		vethHost, err = createVeth(name)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
-	vrf, err := createVRF(params.Name)
-	if err != nil {
-		return err
+	vethHost, ok := link.(*netlink.Veth)
+	if !ok {
+		err := netlink.LinkDel(link)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to delete link %v: %w", link, err)
+		}
 	}
+	if vethHost.PeerName != peSide {
+		err := netlink.LinkDel(link)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to delete link %v: %w", link, err)
+		}
+	}
+
+	err = netlink.LinkSetUp(vethHost)
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not set veth %s up: %w", name, err)
+	}
+	peerIndex, err := netlink.VethPeerIndex(vethHost)
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not find peer veth for %s: %w", name, err)
+	}
+	vethPE, err := netlink.LinkByIndex(peerIndex)
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not find peer veth by index for %s: %w", name, err)
+	}
+	return vethHost, vethPE, nil
+}
+
+func createVeth(name string) (*netlink.Veth, error) {
+	hostSide := name + "host"
+	peSide := name + "pe"
+	vethHost := &netlink.Veth{LinkAttrs: netlink.LinkAttrs{Name: hostSide}, PeerName: peSide}
+	err := netlink.LinkAdd(vethHost)
+	if err != nil {
+		return nil, fmt.Errorf("could not add veth %s: %w", name, err)
+	}
+	return vethHost, nil
+
+}
+
+func setupBridge(params vniParams, vrf *netlink.Vrf) (*netlink.Bridge, error) {
 	bridge := &netlink.Bridge{LinkAttrs: netlink.LinkAttrs{
 		Name:        fmt.Sprintf("br%d", params.VNI),
 		MasterIndex: vrf.Index,
 	}}
-	err = netlink.LinkAdd(bridge)
+	err := netlink.LinkAdd(bridge)
 	if err != nil {
-		return fmt.Errorf("could not create bridge for VNI %d", params.VNI)
+		return nil, fmt.Errorf("could not create bridge for VNI %d", params.VNI)
 	}
 	err = addrGenModeNone(bridge)
 	if err != nil {
-		return fmt.Errorf("failed to set addr_gen_mode to 1 for %s: %w", bridge.Name, err)
+		return nil, fmt.Errorf("failed to set addr_gen_mode to 1 for %s: %w", bridge.Name, err)
+	}
+
+	return bridge, nil
+}
+
+func setupVXLan(params vniParams, bridge *netlink.Bridge) error {
+	loopback, err := netlink.LinkByName("lo")
+	if err != nil {
+		return fmt.Errorf("failed to get loopback by name: %w", err)
 	}
 
 	vxlan := &netlink.Vxlan{LinkAttrs: netlink.LinkAttrs{
@@ -107,43 +167,26 @@ func SetupVNI(params vniParams) error {
 	if err != nil {
 		return fmt.Errorf("failed to set neigh suppression for %s: %w", vxlan.Name, err)
 	}
-
 	return nil
-}
-
-func createVeth(name string) (netlink.Link, netlink.Link, error) {
-	hostSide := name + "host"
-	peSide := name + "pe"
-	la := netlink.NewLinkAttrs()
-	la.Name = hostSide
-	vethHost := &netlink.Veth{LinkAttrs: la, PeerName: peSide}
-	err := netlink.LinkAdd(vethHost)
-	if err != nil {
-		return nil, nil, fmt.Errorf("could not add veth %s: %w", name, err)
-	}
-	err = netlink.LinkSetUp(vethHost)
-	if err != nil {
-		return nil, nil, fmt.Errorf("could not set veth %s up: %w", name, err)
-	}
-	peerIndex, err := netlink.VethPeerIndex(vethHost)
-	if err != nil {
-		return nil, nil, fmt.Errorf("could not find peer veth for %s: %w", name, err)
-	}
-	vethPE, err := netlink.LinkByIndex(peerIndex)
-	if err != nil {
-		return nil, nil, fmt.Errorf("could not find peer veth by index for %s: %w", name, err)
-	}
-	return vethHost, vethPE, nil
 }
 
 func assignIPToInterface(link netlink.Link, address string) error {
 	addr, err := netlink.ParseAddr(address)
 	if err != nil {
-		return fmt.Errorf("SetupVNI: failed to parse address %s for interface %s", address, link.Attrs().Name)
+		return fmt.Errorf("assignIPToInterface: failed to parse address %s for interface %s", address, link.Attrs().Name)
+	}
+	addresses, err := netlink.AddrList(link, netlink.FAMILY_ALL)
+	if err != nil {
+		return fmt.Errorf("assignIPToInterface: failed to list addresses for interface %s", link.Attrs().Name)
+	}
+	for _, a := range addresses {
+		if a.IPNet.String() == address {
+			return nil
+		}
 	}
 	err = netlink.AddrAdd(link, addr)
 	if err != nil {
-		return fmt.Errorf("SetupVNI: failed to add address %s to interface %s, err %v", address, link.Attrs().Name, err)
+		return fmt.Errorf("assignIPToInterface: failed to add address %s to interface %s, err %v", address, link.Attrs().Name, err)
 	}
 	return nil
 }

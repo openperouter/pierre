@@ -2,6 +2,8 @@ package hostnetwork
 
 import (
 	"testing"
+
+	"github.com/vishvananda/netlink"
 )
 
 const testNSName = "testns"
@@ -35,4 +37,21 @@ func TestVNI(t *testing.T) {
 		// TODO assertions
 		return nil
 	})
+}
+
+func validateVNI(t *testing.T, params vniParams) {
+	t.Helper()
+	validateVXLan := func(t *testing.T, l netlink.Link, params vniParams) {
+
+	}
+	links, err := netlink.LinkList()
+	if err != nil {
+		t.Fatalf("failed to list links %v", err)
+	}
+	for _, l := range links {
+		if l.Type() == "vxlan" {
+			validateVXLan(t, l, params)
+		}
+
+	}
 }
