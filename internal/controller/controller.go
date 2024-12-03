@@ -32,8 +32,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
-// UnderlayReconciler reconciles a Underlay object
-type UnderlayReconciler struct {
+// PERouterReconciler reconciles a Underlay object
+type PERouterReconciler struct {
 	client.Client
 	Scheme     *runtime.Scheme
 	MyNode     string
@@ -60,7 +60,7 @@ type UnderlayReconciler struct {
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.1/pkg/reconcile
-func (r *UnderlayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *PERouterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	slog.Info("controller", "UnderlayReconciler", "start reconcile", "request", req.NamespacedName.String())
 	defer slog.Info("controller", "UnderlayReconciler", "end reconcile", "request", req.NamespacedName.String())
 
@@ -114,7 +114,7 @@ func (r *UnderlayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *UnderlayReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *PERouterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	p := predicate.NewPredicateFuncs(func(object client.Object) bool {
 		switch o := object.(type) {
 		case *v1.Pod:

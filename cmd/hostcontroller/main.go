@@ -141,7 +141,7 @@ func main() {
 		setupLog.Error(err, "connect to crio")
 		os.Exit(1)
 	}
-	if err = (&controller.UnderlayReconciler{
+	if err = (&controller.PERouterReconciler{
 		Client:     mgr.GetClient(),
 		Scheme:     mgr.GetScheme(),
 		MyNode:     nodeName,

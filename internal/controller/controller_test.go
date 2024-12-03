@@ -68,7 +68,7 @@ var _ = Describe("Underlay Controller", func() {
 		})
 		It("should successfully reconcile the resource", func() {
 			By("Reconciling the created resource")
-			controllerReconciler := &UnderlayReconciler{
+			controllerReconciler := &PERouterReconciler{
 				Client: k8sClient,
 				Scheme: k8sClient.Scheme(),
 			}
