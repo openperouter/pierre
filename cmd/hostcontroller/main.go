@@ -79,7 +79,7 @@ func main() {
 	flag.StringVar(&logLevel, "loglevel", "info", "the verbosity of the process1")
 	flag.StringVar(&frrConfigPath, "frrconfig", "/etc/perouter/frr/frr.conf", "the location of the frr configuration file")
 	flag.IntVar(&reloadPort, "reloadport", 8080, "the port of the reloader process")
-	flag.StringVar(&crioSocket, "criosocket", "", "the location of the crio socket")
+	flag.StringVar(&crioSocket, "criosocket", "/var/run/containerd/containerd.sock", "the location of the crio socket")
 
 	opts := zap.Options{
 		Development: true,
