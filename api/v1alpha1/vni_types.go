@@ -30,6 +30,7 @@ type VNISpec struct {
 	LocalNeighbor Neighbor `json:"localNeighbor,omitempty"`
 	VNI           uint32   `json:"vni,omitempty"`
 	LocalCIDR     string   `json:"localip,omitempty"`
+	VXLanPort     uint32   `json:"vxlanport,omitempty"`
 }
 
 // VNIStatus defines the observed state of VNI.

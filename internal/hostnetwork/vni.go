@@ -7,8 +7,8 @@ import (
 	"github.com/vishvananda/netns"
 )
 
-type vniParams struct {
-	Name       string
+type VNIParams struct {
+	VRF        string
 	TargetNS   string
 	VTEPIP     string
 	VethHostIP string
@@ -17,13 +17,13 @@ type vniParams struct {
 	VXLanPort  int
 }
 
-func SetupVNI(params vniParams) error {
+func SetupVNI(params VNIParams) error {
 	ns, err := netns.GetFromName(params.TargetNS)
 	if err != nil {
 		return fmt.Errorf("SetupVNI: Failed to get network namespace %s", params.TargetNS)
 	}
 
-	hostVeth, peVeth, err := setupVeth(params.Name)
+	hostVeth, peVeth, err := setupVeth(params.VRF)
 	if err != nil {
 		return err
 	}
@@ -52,7 +52,7 @@ func SetupVNI(params vniParams) error {
 			return fmt.Errorf("could not set link up for host leg %s: %v", hostVeth, err)
 		}
 
-		vrf, err := setupVRF(params.Name)
+		vrf, err := setupVRF(params.VRF)
 		if err != nil {
 			return err
 		}

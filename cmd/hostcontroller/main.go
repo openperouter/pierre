@@ -20,6 +20,7 @@ import (
 	"crypto/tls"
 	"flag"
 	"os"
+	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -36,6 +37,7 @@ import (
 
 	periov1alpha1 "github.com/openperouter/openperouter/api/v1alpha1"
 	"github.com/openperouter/openperouter/internal/controller"
+	"github.com/openperouter/openperouter/internal/pods"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -63,6 +65,7 @@ func main() {
 		logLevel      string
 		frrConfigPath string
 		reloadPort    int
+		crioSocket    string
 	)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
@@ -76,6 +79,7 @@ func main() {
 	flag.StringVar(&logLevel, "loglevel", "info", "the verbosity of the process1")
 	flag.StringVar(&frrConfigPath, "frrconfig", "/etc/perouter/frr/frr.conf", "the location of the frr configuration file")
 	flag.IntVar(&reloadPort, "reloadport", 8080, "the port of the reloader process")
+	flag.StringVar(&crioSocket, "criosocket", "", "the location of the crio socket")
 
 	opts := zap.Options{
 		Development: true,
@@ -132,12 +136,18 @@ func main() {
 		os.Exit(1)
 	}
 
+	podRuntime, err := pods.NewRuntime(crioSocket, time.Minute)
+	if err != nil {
+		setupLog.Error(err, "connect to crio")
+		os.Exit(1)
+	}
 	if err = (&controller.UnderlayReconciler{
 		Client:     mgr.GetClient(),
 		Scheme:     mgr.GetScheme(),
 		MyNode:     nodeName,
 		FRRConfig:  frrConfigPath,
 		ReloadPort: reloadPort,
+		PodRuntime: podRuntime,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Underlay")
 		os.Exit(1)

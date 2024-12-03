@@ -7,7 +7,7 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
-func setupBridge(params vniParams, vrf *netlink.Vrf) (*netlink.Bridge, error) {
+func setupBridge(params VNIParams, vrf *netlink.Vrf) (*netlink.Bridge, error) {
 
 	name := bridgeName(params.VNI)
 	link, err := netlink.LinkByName(name)

@@ -18,7 +18,6 @@ package controller
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -29,9 +28,7 @@ import (
 
 	"github.com/openperouter/openperouter/api/v1alpha1"
 	periov1alpha1 "github.com/openperouter/openperouter/api/v1alpha1"
-	"github.com/openperouter/openperouter/internal/conversion"
-	"github.com/openperouter/openperouter/internal/frr"
-	"github.com/openperouter/openperouter/internal/frrconfig"
+	"github.com/openperouter/openperouter/internal/pods"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -42,6 +39,7 @@ type UnderlayReconciler struct {
 	MyNode     string
 	FRRConfig  string
 	ReloadPort int
+	PodRuntime *pods.Runtime
 }
 
 // +kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch
@@ -101,32 +99,18 @@ func (r *UnderlayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
+	if err := configureInterfaces(ctx, interfacesConfiguration{
+		RouterPodUUID: string(routerPod.UID),
+		PodRuntime:    *r.PodRuntime,
+		NodeIndex:     nodeIndex,
+		Underlays:     underlays.Items,
+		Vnis:          vnis.Items,
+	}); err != nil {
+		slog.Error("failed to configure the host", "error", err)
+		return ctrl.Result{}, err
+	}
+
 	return ctrl.Result{}, nil
-}
-
-type frrConfigData struct {
-	configFile string
-	address    string
-	port       int
-	nodeIndex  int
-	underlays  []v1alpha1.Underlay
-	vnis       []v1alpha1.VNI
-}
-
-func reloadFRRConfig(data frrConfigData) error {
-	slog.Debug("reloading FRR config", "config", data)
-	frrConfig, err := conversion.APItoFRR(data.nodeIndex, data.underlays, data.vnis)
-	if err != nil {
-		return fmt.Errorf("failed to generate the frr configuration: %w", err)
-	}
-
-	url := fmt.Sprintf("%s:%d", data.address, data.port)
-	updater := frrconfig.UpdaterForAddress(url, data.configFile)
-	err = frr.ApplyConfig(&frrConfig, updater)
-	if err != nil {
-		return fmt.Errorf("failed to update the frr configuration: %w", err)
-	}
-	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

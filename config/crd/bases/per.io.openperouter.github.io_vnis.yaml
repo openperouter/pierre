@@ -123,6 +123,9 @@ spec:
                 type: integer
               vrf:
                 type: string
+              vxlanport:
+                format: int32
+                type: integer
             type: object
           status:
             description: VNIStatus defines the observed state of VNI.

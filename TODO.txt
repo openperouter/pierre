@@ -3,9 +3,6 @@
 - RBacs
 - Interaction between controller and reloader
 - FRR Rendering through configmap
-- Namespace configuration
-	- package to create config for vrf: veth , vrf , bridge, vni
-	- package to move interface
 
 validating webhook
 metrics
@@ -13,7 +10,6 @@ liveness probes
 - bfd profile
 vtepip vs vtep prefix under frr. Also, ipv6
 
-one underlay definition, multiple vnis
 node selector
 ip assignement: vtep, veths
 
@@ -30,3 +26,5 @@ bgp passwords
 ipam count validation
 
 reconciliation with link subscribe
+merge configurations
+default values

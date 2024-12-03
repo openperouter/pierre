@@ -8,7 +8,7 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
-func setupVXLan(params vniParams, bridge *netlink.Bridge) error {
+func setupVXLan(params VNIParams, bridge *netlink.Bridge) error {
 	loopback, err := netlink.LinkByName("lo")
 	if err != nil {
 		return fmt.Errorf("failed to get loopback by name: %w", err)
@@ -62,16 +62,16 @@ func setupVXLan(params vniParams, bridge *netlink.Bridge) error {
 	return nil
 }
 
-func checkVXLanConfigured(vxLan *netlink.Vxlan, bridgeIndex, loopbackIndex int, params vniParams) error {
+func checkVXLanConfigured(vxLan *netlink.Vxlan, bridgeIndex, loopbackIndex int, params VNIParams) error {
 	if vxLan.MasterIndex != bridgeIndex {
 		return fmt.Errorf("master index is not bridge index: %d, %d", vxLan.MasterIndex, bridgeIndex)
 	}
 
-	if vxLan.VxlanId != params.VNI {
+	if vxLan.VxlanId != int(params.VNI) {
 		return fmt.Errorf("vxlanid is not vni: %d, %d", vxLan.VxlanId, params.VNI)
 	}
 
-	if vxLan.Port != params.VXLanPort {
+	if vxLan.Port != int(params.VXLanPort) {
 		return fmt.Errorf("port is not one coming from params: %d, %d", vxLan.Port, params.VXLanPort)
 	}
 
@@ -89,7 +89,7 @@ func checkVXLanConfigured(vxLan *netlink.Vxlan, bridgeIndex, loopbackIndex int, 
 	return nil
 }
 
-func createVXLan(params vniParams, bridge *netlink.Bridge) (*netlink.Vxlan, error) {
+func createVXLan(params VNIParams, bridge *netlink.Bridge) (*netlink.Vxlan, error) {
 	loopback, err := netlink.LinkByName("lo")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get loopback by name: %w", err)
