@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: client
+spec:
+  containers:
+    - name: client
+      image: praqma/network-multitool:latest
+      command: ["/bin/sh", "-c"]
+      args:
+        ["sleep INF"]
