@@ -33,10 +33,10 @@ topology:
         - host1/setup.sh:/setup.sh
       cmd: sleep INF
 
-    k0:
+    pe-kind:
       kind: k8s-kind
 
-    k0-control-plane:
+    pe-kind-control-plane:
       kind: ext-container
       binds:
         - kind/setup.sh:/setup.sh
@@ -45,4 +45,4 @@ topology:
     - endpoints: ["leaf1:eth1", "spine:eth1"]
     - endpoints: ["leaf2:eth1", "spine:eth2"]
     - endpoints: ["HOST1:eth1", "leaf1:eth2"]
-    - endpoints: ["k0-control-plane:eth1", "leaf2:eth2"]
+    - endpoints: ["pe-kind-control-plane:eth1", "leaf2:eth2"]

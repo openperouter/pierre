@@ -29,6 +29,7 @@ spec:
           capabilities:
             add: ["NET_ADMIN", "NET_RAW", "SYS_ADMIN", "NET_BIND_SERVICE"]
         image: quay.io/frrouting/frr:master
+        imagePullPolicy: IfNotPresent
         env:
           - name: TINI_SUBREAPER
             value: "true"
@@ -53,6 +54,7 @@ spec:
             tail -f /etc/frr/frr.log
       - name: reloader
         image: quay.io/frrouting/frr:master
+        imagePullPolicy: IfNotPresent
         command: ["/etc/frr_reloader/reloader"]
         args:
         - "--frrconfig=/etc/perouter/frr.conf"
@@ -91,6 +93,7 @@ spec:
             runAsUser: 100
             runAsGroup: 101
           image: quay.io/frrouting/frr:master
+          imagePullPolicy: IfNotPresent
           command: ["/bin/sh", "-c", "cp -rLf /tmp/frr/* /etc/frr/"]
           volumeMounts:
             - name: frr-startup
@@ -100,7 +103,8 @@ spec:
         # Copies the reloader to the shared volume between the k8s-frr controller and reloader.
         - name: cp-reloader
           image: router:latest
-          command: ["/bin/sh", "-c", "cp -f /reloader /etc/frr_reloader/reloader"]
+          imagePullPolicy: IfNotPresent
+          command: ["/cp-tool", "/reloader", "/etc/frr_reloader/reloader"]
           volumeMounts:
             - name: reloader
               mountPath: /etc/frr_reloader

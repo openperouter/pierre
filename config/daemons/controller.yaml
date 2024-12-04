@@ -30,7 +30,7 @@ spec:
         - "--nodename=$(NODE_NAME)"
         - "--loglevel=info"
         - "--namespace=$(NAMESPACE)"
-        - "--frrconfig="/etc/frr/frr.conf"
+        - "--frrconfig=/etc/frr/frr.conf"
         image: router:latest
         imagePullPolicy: IfNotPresent
         name: controller
@@ -45,7 +45,7 @@ spec:
         - mountPath: /run/netns
           name: runns
           mountPropagation: HostToContainer
-        -mountPath: /etc/frr/
+        - mountPath: /etc/frr/
           name: frr-config
           mountPropagation: HostToContainer
         resources:

@@ -1,7 +1,5 @@
 #!/bin/bash
 
-kind get kubeconfig --name k0 > kubeconfig
-export KUBECONFIG=./kubeconfig
 # TO REMOVE ONCE fixed in frr-k8s
 kubectl apply -f https://raw.githubusercontent.com/metallb/frr-k8s/main/config/all-in-one/frr-k8s.yaml
 kubectl apply -f kind/frr-k8s/client.yaml

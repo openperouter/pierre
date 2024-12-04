@@ -121,7 +121,7 @@ CONTROLLER_TOOLS_VERSION ?= v0.14.0
 KUBECTL_VERSION ?= v1.27.0
 GINKGO_VERSION ?= v2.19.0
 KIND_VERSION ?= v0.23.0
-KIND_CLUSTER_NAME ?= perouter
+KIND_CLUSTER_NAME ?= pe-kind
 HELM_VERSION ?= v3.12.3
 HELM_DOCS_VERSION ?= v1.10.0
 APIDOCSGEN_VERSION ?= v0.0.12
@@ -149,7 +149,10 @@ deploy-prometheus: kubectl
 	$(KUBECTL) -n monitoring wait --for=condition=Ready --all pods --timeout 300s
 
 .PHONY: deploy-cluster
-deploy-cluster: kubectl manifests kustomize kind load-on-kind ## Deploy a cluster for the controller.
+deploy-cluster: kubectl manifests kustomize load-on-kind ## Deploy a cluster for the controller.
+
+.PHONY: deploy-clab
+deploy-clab: kubectl manifests kustomize load-on-kind ## Deploy a cluster for the controller.
 
 KUSTOMIZE_LAYER ?= default
 .PHONY: deploy-controller
@@ -200,12 +203,6 @@ $(KUBECTL): $(LOCALBIN)
 	curl -o $(LOCALBIN)/kubectl -LO https://dl.k8s.io/release/$(KUBECTL_VERSION)/bin/$$(go env GOOS)/$$(go env GOARCH)/kubectl
 	chmod +x $(LOCALBIN)/kubectl
 
-.PHONY: kind
-kind: $(KIND) ## Download kind locally if necessary. If wrong version is installed, it will be overwritten.
-$(KIND): $(LOCALBIN)
-	test -s $(LOCALBIN)/kind && $(LOCALBIN)/kind --version | grep -q $(KIND_VERSION) || \
-	GOBIN=$(LOCALBIN) go install sigs.k8s.io/kind@$(KIND_VERSION)
-
 .PHONY: helm
 helm: $(HELM) ## Download helm locally if necessary. If wrong version is installed, it will be overwritten.
 $(HELM): $(LOCALBIN)
@@ -234,14 +231,14 @@ e2etests: ginkgo kubectl
 	$(GINKGO) -v $(GINKGO_ARGS) --timeout=3h ./e2etests -- --kubectl=$(KUBECTL) $(TEST_ARGS)
 
 
-.PHONY: kind-cluster
-kind-cluster: kind
-	KIND_BIN=$(LOCALBIN)/kind hack/kind.sh
+.PHONY: clab-cluster
+clab-cluster:
+	KUBECONFIG_PATH=$(KUBECONFIG_PATH) clab/setup.sh
 	@echo 'kind cluster created, to use it please'
 	@echo 'export KUBECONFIG=${KUBECONFIG_PATH}'
 
 .PHONY: load-on-kind
-load-on-kind: kind-cluster ## Load the docker image into the kind cluster.
+load-on-kind: clab-cluster ## Load the docker image into the kind cluster.
 	$(LOCALBIN)/kind load docker-image ${IMG} -n ${KIND_CLUSTER_NAME}
 
 .PHONY: lint
