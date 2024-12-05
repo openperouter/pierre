@@ -19,6 +19,7 @@ package main
 import (
 	"crypto/tls"
 	"flag"
+	"fmt"
 	"os"
 	"time"
 
@@ -31,12 +32,13 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
+	"github.com/go-logr/logr/slogr"
 	periov1alpha1 "github.com/openperouter/openperouter/api/v1alpha1"
 	"github.com/openperouter/openperouter/internal/controller"
+	"github.com/openperouter/openperouter/internal/logging"
 	"github.com/openperouter/openperouter/internal/pods"
 	// +kubebuilder:scaffold:imports
 )
@@ -65,7 +67,7 @@ func main() {
 		logLevel      string
 		frrConfigPath string
 		reloadPort    int
-		crioSocket    string
+		criSocket     string
 	)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
@@ -76,18 +78,19 @@ func main() {
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	flag.StringVar(&nodeName, "nodename", "", "The name of the node the controller runs on")
 	flag.StringVar(&namespace, "namespace", "", "The namespace the controller runs in")
-	flag.StringVar(&logLevel, "loglevel", "info", "the verbosity of the process1")
+	flag.StringVar(&logLevel, "loglevel", "info", "the verbosity of the process")
 	flag.StringVar(&frrConfigPath, "frrconfig", "/etc/perouter/frr/frr.conf", "the location of the frr configuration file")
 	flag.IntVar(&reloadPort, "reloadport", 8080, "the port of the reloader process")
-	flag.StringVar(&crioSocket, "criosocket", "/var/run/containerd/containerd.sock", "the location of the crio socket")
+	flag.StringVar(&criSocket, "crisocket", "/var/run/containerd/containerd.sock", "the location of the cri socket")
 
-	opts := zap.Options{
-		Development: true,
-	}
-	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
 
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+	logger, err := logging.New(logLevel)
+	if err != nil {
+		fmt.Println("unable to init logger", err)
+		os.Exit(1)
+	}
+	ctrl.SetLogger(slogr.NewLogr(logger.Handler()))
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will
@@ -136,11 +139,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	podRuntime, err := pods.NewRuntime(crioSocket, time.Minute)
+	podRuntime, err := pods.NewRuntime(criSocket, 5*time.Minute)
 	if err != nil {
 		setupLog.Error(err, "connect to crio")
 		os.Exit(1)
 	}
+
 	if err = (&controller.PERouterReconciler{
 		Client:     mgr.GetClient(),
 		Scheme:     mgr.GetScheme(),
@@ -148,6 +152,8 @@ func main() {
 		FRRConfig:  frrConfigPath,
 		ReloadPort: reloadPort,
 		PodRuntime: podRuntime,
+		LogLevel:   logLevel,
+		Logger:     logger,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Underlay")
 		os.Exit(1)

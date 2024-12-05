@@ -40,6 +40,8 @@ type PERouterReconciler struct {
 	FRRConfig  string
 	ReloadPort int
 	PodRuntime *pods.Runtime
+	LogLevel   string
+	Logger     *slog.Logger
 }
 
 // +kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch
@@ -61,8 +63,11 @@ type PERouterReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.1/pkg/reconcile
 func (r *PERouterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	slog.Info("controller", "UnderlayReconciler", "start reconcile", "request", req.NamespacedName.String())
-	defer slog.Info("controller", "UnderlayReconciler", "end reconcile", "request", req.NamespacedName.String())
+	logger := r.Logger.With("request", req.NamespacedName.String())
+	logger.Info("controller", "UnderlayReconciler", "start reconcile")
+	defer logger.Info("controller", "UnderlayReconciler", "end reconcile")
+
+	ctx = context.WithValue(ctx, "request", req.NamespacedName.String())
 
 	nodeIndex, err := nodeIndex(ctx, r.Client, r.MyNode)
 	if err != nil {
@@ -74,6 +79,7 @@ func (r *PERouterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		slog.Error("failed to fetch router pod", "node", r.MyNode, "error", err)
 		return ctrl.Result{}, err
 	}
+	logger.Info("router pod", "Pod", routerPod.Name)
 
 	var underlays v1alpha1.UnderlayList
 	if err := r.Client.List(ctx, &underlays); err != nil {
@@ -86,13 +92,15 @@ func (r *PERouterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		slog.Error("failed to list vnis", "error", err)
 		return ctrl.Result{}, err
 	}
+	logger.Debug("using config", "vnis", vnis.Items, "underlays", underlays.Items)
 
-	if err := reloadFRRConfig(frrConfigData{
+	if err := reloadFRRConfig(ctx, frrConfigData{
 		configFile: r.FRRConfig,
 		address:    routerPod.Status.PodIP,
 		port:       r.ReloadPort,
 		nodeIndex:  nodeIndex,
 		underlays:  underlays.Items,
+		logLevel:   r.LogLevel,
 		vnis:       vnis.Items,
 	}); err != nil {
 		slog.Error("failed to reload frr config", "error", err)

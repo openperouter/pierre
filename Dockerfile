@@ -25,8 +25,10 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
 
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
-FROM gcr.io/distroless/static:nonroot
+#FROM gcr.io/distroless/static:nonroot
+FROM fedora:latest
 WORKDIR /
+RUN dnf install -y jq crictl iproute
 COPY --from=builder /go/openperouter/reloader .
 COPY --from=builder /go/openperouter/controller .
 COPY --from=builder /go/openperouter/cp-tool .

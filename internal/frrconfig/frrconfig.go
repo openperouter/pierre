@@ -18,6 +18,7 @@ const frrConfPath = "/etc/frr/frr.conf"
 
 // Config reloads the frr configuration at the given path.
 func Update(path string) error {
+	slog.Info("config update", "path", path)
 	err := reloadAction(path, Test)
 	if err != nil {
 		return err

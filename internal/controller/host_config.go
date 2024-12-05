@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/openperouter/openperouter/api/v1alpha1"
 	"github.com/openperouter/openperouter/internal/conversion"
@@ -23,17 +24,21 @@ func configureInterfaces(ctx context.Context, config interfacesConfiguration) er
 	if err != nil {
 		return fmt.Errorf("failed to retrieve namespace for pod %s: %w", config.RouterPodUUID, err)
 	}
-	// TODO log
+
+	slog.InfoContext(ctx, "configure interface start", "namespace", targetNS)
+	defer slog.InfoContext(ctx, "configure interface end", "namespace", targetNS)
 	underlayParams, vnis, err := conversion.APItoHostConfig(config.NodeIndex, targetNS, config.Underlays, config.Vnis)
 	if err != nil {
 		return fmt.Errorf("failed to convert config to host configuration: %w", err)
 	}
-	if err := hostnetwork.SetupUnderlay(underlayParams); err != nil {
+
+	slog.InfoContext(ctx, "setting up underlay")
+	if err := hostnetwork.SetupUnderlay(ctx, underlayParams); err != nil {
 		return fmt.Errorf("failed to setup underlay: %w", err)
 	}
 	for _, vni := range vnis {
-		// TODO log
-		if err := hostnetwork.SetupVNI(vni); err != nil {
+		slog.InfoContext(ctx, "setting up VNI", "vni", vni.VRF)
+		if err := hostnetwork.SetupVNI(ctx, vni); err != nil {
 			return fmt.Errorf("failed to setup vni: %w", err)
 		}
 	}

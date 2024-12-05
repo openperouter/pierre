@@ -21,20 +21,29 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 
 	"flag"
+	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 
 	"github.com/openperouter/openperouter/internal/frrconfig"
+	"github.com/openperouter/openperouter/internal/logging"
 )
 
 var frrConfigPath string
 
 func main() {
 	var bindAddress string
+	var logLevel string
 	flag.StringVar(&bindAddress, "bindaddress", "localhost:8080", "The address the reloader endpoint binds to. ")
 	flag.StringVar(&frrConfigPath, "frrconfig", "/etc/frr/frr.conf", "The path the frr configuration is at")
+	flag.StringVar(&logLevel, "loglevel", "info", "The log level of the process")
 	flag.Parse()
 
+	_, err := logging.New(logLevel)
+	if err != nil {
+		fmt.Println("failed to init logger", err)
+	}
 	http.HandleFunc("/", reloadHandler)
 	log.Fatal(http.ListenAndServe(bindAddress, nil))
 }
@@ -46,6 +55,7 @@ func reloadHandler(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "invalid method", http.StatusBadRequest)
 		return
 	}
+	slog.Info("reload handler", "event", "received request")
 	err := updateConfig(frrConfigPath)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

@@ -12,7 +12,7 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-func APItoFRR(nodeIndex int, underlays []v1alpha1.Underlay, vnis []v1alpha1.VNI) (frr.Config, error) {
+func APItoFRR(nodeIndex int, underlays []v1alpha1.Underlay, vnis []v1alpha1.VNI, logLevel string) (frr.Config, error) {
 	if len(underlays) > 1 {
 		return frr.Config{}, fmt.Errorf("can't have more than one underlay")
 	}
@@ -51,6 +51,7 @@ func APItoFRR(nodeIndex int, underlays []v1alpha1.Underlay, vnis []v1alpha1.VNI)
 	return frr.Config{
 		Underlay: underlayConfig,
 		VNIs:     vniConfigs,
+		Loglevel: logLevel,
 	}, nil
 }
 

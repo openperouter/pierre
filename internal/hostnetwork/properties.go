@@ -1,7 +1,9 @@
 package hostnetwork
 
 import (
+	"context"
 	"fmt"
+	"log/slog"
 	"os"
 
 	"github.com/vishvananda/netlink"
@@ -76,7 +78,10 @@ func setNeighSuppression(link netlink.Link) error {
 	return nil
 }
 
-func moveNicToNamespace(nic string, ns netns.NsHandle) error {
+func moveNicToNamespace(ctx context.Context, nic string, ns netns.NsHandle) error {
+	slog.DebugContext(ctx, "move nic to namespace", "nic", nic, "namespace", ns.String())
+	defer slog.DebugContext(ctx, "move nic to namespace end", "nic", nic, "namespace", ns.String())
+
 	link, err := netlink.LinkByName(nic)
 	if err != nil {
 		return fmt.Errorf("setupUnderlay: Failed to find link %s: %w", nic, err)

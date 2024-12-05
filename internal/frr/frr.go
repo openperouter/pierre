@@ -3,13 +3,14 @@
 package frr
 
 import (
+	"context"
 	"os"
 	"sync"
 
 	"github.com/go-kit/log"
 )
 
-type ConfigUpdater func(string) error
+type ConfigUpdater func(context.Context, string) error
 
 type FRR struct {
 	reloadConfig chan reloadEvent
@@ -24,14 +25,14 @@ const ReloadSuccess = "success"
 // in unit tests.
 var osHostname = os.Hostname
 
-func ApplyConfig(config *Config, updater ConfigUpdater) error {
+func ApplyConfig(ctx context.Context, config *Config, updater ConfigUpdater) error {
 	hostname, err := osHostname()
 	if err != nil {
 		return err
 	}
 
 	config.Hostname = hostname
-	return generateAndReloadConfigFile(config, updater)
+	return generateAndReloadConfigFile(ctx, config, updater)
 }
 
 func NewFRR(logger log.Logger) *FRR {

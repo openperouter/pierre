@@ -1,7 +1,9 @@
 package hostnetwork
 
 import (
+	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
@@ -17,13 +19,15 @@ type VNIParams struct {
 	VXLanPort  int
 }
 
-func SetupVNI(params VNIParams) error {
+func SetupVNI(ctx context.Context, params VNIParams) error {
+	slog.DebugContext(ctx, "setting up VNI", "params", params)
+	defer slog.DebugContext(ctx, "end setting up VNI", "params", params)
 	ns, err := netns.GetFromName(params.TargetNS)
 	if err != nil {
 		return fmt.Errorf("SetupVNI: Failed to get network namespace %s", params.TargetNS)
 	}
 
-	hostVeth, peVeth, err := setupVeth(params.VRF)
+	hostVeth, peVeth, err := setupVeth(ctx, params.VRF)
 	if err != nil {
 		return err
 	}
@@ -41,6 +45,7 @@ func SetupVNI(params VNIParams) error {
 	if err != nil {
 		return fmt.Errorf("setupUnderlay: Failed to move %s to network namespace %s: %w", peVeth.Attrs().Name, ns.String(), err)
 	}
+	slog.DebugContext(ctx, "pe leg moved to ns", "pe veth", peVeth.Attrs().Name)
 
 	err = inNamespace(ns, func() error {
 		err = assignIPToInterface(peVeth, params.VethNSIP)
@@ -52,16 +57,19 @@ func SetupVNI(params VNIParams) error {
 			return fmt.Errorf("could not set link up for host leg %s: %v", hostVeth, err)
 		}
 
+		slog.DebugContext(ctx, "setting up vrf", "vrf", params.VRF)
 		vrf, err := setupVRF(params.VRF)
 		if err != nil {
 			return err
 		}
 
+		slog.DebugContext(ctx, "setting up bridge")
 		bridge, err := setupBridge(params, vrf)
 		if err != nil {
 			return err
 		}
 
+		slog.DebugContext(ctx, "setting up vxlan")
 		err = setupVXLan(params, bridge)
 		if err != nil {
 			return err

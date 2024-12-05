@@ -128,18 +128,22 @@ func templateConfig(data interface{}) (string, error) {
 // generateAndReloadConfigFile takes a 'struct Config' and, using a template,
 // generates and writes a valid FRR configuration file. If this completes
 // successfully it will also force FRR to reload that configuration file.
-func generateAndReloadConfigFile(config *Config, updater ConfigUpdater) error {
+func generateAndReloadConfigFile(ctx context.Context, config *Config, updater ConfigUpdater) error {
+	slog.InfoContext(ctx, "frr generate config", "event", "start")
+	defer slog.InfoContext(ctx, "frr generate config", "event", "stop")
+
+	slog.DebugContext(ctx, "frr generate config", "config", *config)
+
 	configString, err := templateConfig(config)
 	if err != nil {
 		slog.Error("op", "reload", "error", err, "cause", "template", "config", config)
 		return err
 	}
-	err = updater(configString)
+	err = updater(ctx, configString)
 	if err != nil {
 		slog.Error("op", "reload", "error", err, "cause", "updater", "config", config)
 		return err
 	}
-
 	return nil
 }
 

@@ -1,7 +1,9 @@
 package hostnetwork
 
 import (
+	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
@@ -13,14 +15,16 @@ type UnderlayParams struct {
 	TargetNS string
 }
 
-func SetupUnderlay(params UnderlayParams) error {
+func SetupUnderlay(ctx context.Context, params UnderlayParams) error {
+	slog.DebugContext(ctx, "setup underlay", "params", params)
+	defer slog.DebugContext(ctx, "setup underlay done")
 	ns, err := netns.GetFromName(params.TargetNS)
 	if err != nil {
 		return fmt.Errorf("setupUnderlay: Failed to find network namespace %s: %w", params.TargetNS, err)
 	}
 	defer ns.Close()
 
-	err = moveNicToNamespace(params.MainNic, ns)
+	err = moveNicToNamespace(ctx, params.MainNic, ns)
 	if err != nil {
 		return err
 	}
