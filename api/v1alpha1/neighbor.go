@@ -18,12 +18,6 @@ type Neighbor struct {
 	// +optional
 	ASN uint32 `json:"asn,omitempty"`
 
-	// SourceAddress is the IPv4 or IPv6 source address to use for the BGP
-	// session to this neighbour, may be specified as either an IP address
-	// directly or as an interface name
-	// +optional
-	SourceAddress string `json:"sourceaddress,omitempty"`
-
 	// Address is the IP address to establish the session with.
 	Address string `json:"address"`
 

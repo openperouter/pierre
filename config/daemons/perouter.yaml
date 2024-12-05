@@ -58,6 +58,7 @@ spec:
         command: ["/etc/frr_reloader/reloader"]
         args:
         - "--frrconfig=/etc/perouter/frr.conf"
+        - "--loglevel=debug"
         volumeMounts:
           - name: frr-sockets
             mountPath: /var/run/frr

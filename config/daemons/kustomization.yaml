@@ -6,6 +6,10 @@ resources:
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 images:
+- name: controller
+  newName: quay.io/openperouter/router
+  newTag: latest
 - name: router
   newName: quay.io/openperouter/router
   newTag: latest
+namespace: openperouter-system

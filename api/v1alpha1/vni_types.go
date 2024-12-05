@@ -29,7 +29,7 @@ type VNISpec struct {
 	VRF           string   `json:"vrf,omitempty"`
 	LocalNeighbor Neighbor `json:"localNeighbor,omitempty"`
 	VNI           uint32   `json:"vni,omitempty"`
-	LocalCIDR     string   `json:"localip,omitempty"`
+	LocalCIDR     string   `json:"localcidr,omitempty"`
 	VXLanPort     uint32   `json:"vxlanport,omitempty"`
 }
 
