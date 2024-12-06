@@ -27,6 +27,7 @@ exit-vrf
 
 route-map allowall permit 1
 
+{{- if .Underlay.MyASN }}
 router bgp {{ .Underlay.MyASN }}
   no bgp ebgp-requires-policy
   no bgp network import-check
@@ -50,7 +51,7 @@ router bgp {{ .Underlay.MyASN }}
     advertise-all-vni
     advertise-svi-ip
   exit-address-family
-
+{{- end }}
 
 {{- range .VNIs }}
 

@@ -9,12 +9,8 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"reflect"
 	"text/template"
-	"time"
 
-	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
 	"github.com/openperouter/openperouter/internal/ipfamily"
 )
 
@@ -145,52 +141,4 @@ func generateAndReloadConfigFile(ctx context.Context, config *Config, updater Co
 		return err
 	}
 	return nil
-}
-
-// debouncer takes a function that processes an Config, a channel where
-// the update requests are sent, and squashes any requests coming in a given timeframe
-// as a single request.
-func debouncer(ctx context.Context, body func(config *Config) error,
-	reload <-chan reloadEvent,
-	reloadInterval time.Duration,
-	failureRetryInterval time.Duration,
-	l log.Logger) {
-	go func() {
-		var config *Config
-		var timeOut <-chan time.Time
-		timerSet := false
-		for {
-			select {
-			case newCfg, ok := <-reload:
-				if !ok { // the channel was closed
-					return
-				}
-				if newCfg.useOld && config == nil {
-					level.Debug(l).Log("op", "reload", "action", "ignore config", "reason", "nil config")
-					continue // just ignore the event
-				}
-				if !newCfg.useOld && reflect.DeepEqual(newCfg.config, config) {
-					level.Debug(l).Log("op", "reload", "action", "ignore config", "reason", "same config")
-					continue // config hasn't changed
-				}
-				if !newCfg.useOld {
-					config = newCfg.config
-				}
-				if !timerSet {
-					timeOut = time.After(reloadInterval)
-					timerSet = true
-				}
-			case <-timeOut:
-				err := body(config)
-				if err != nil {
-					timeOut = time.After(failureRetryInterval)
-					timerSet = true
-					continue
-				}
-				timerSet = false
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
 }

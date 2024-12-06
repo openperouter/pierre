@@ -50,7 +50,19 @@ func TestBasic(t *testing.T) {
 			},
 		},
 	}
-	if err := ApplyConfig(&config, updater); err != nil {
+	if err := ApplyConfig(context.TODO(), &config, updater); err != nil {
+		t.Fatalf("Failed to apply config: %s", err)
+	}
+
+	testCheckConfigFile(t)
+}
+
+func TestEmpty(t *testing.T) {
+	configFile := testSetup(t)
+	updater := testUpdater(configFile)
+
+	config := Config{}
+	if err := ApplyConfig(context.TODO(), &config, updater); err != nil {
 		t.Fatalf("Failed to apply config: %s", err)
 	}
 
@@ -123,8 +135,8 @@ func testCheckConfigFile(t *testing.T) {
 	}
 }
 
-func testUpdater(configFile string) func(config string) error {
-	return func(config string) error {
+func testUpdater(configFile string) func(context.Context, string) error {
+	return func(_ context.Context, config string) error {
 		err := os.WriteFile(configFile, []byte(config), 0600)
 		if err != nil {
 			return fmt.Errorf("failed to write the config to %s", configFile)

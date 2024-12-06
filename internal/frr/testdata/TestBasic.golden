@@ -1,6 +1,6 @@
 log file /etc/frr/frr.log 
 log timestamp precision 3
-hostname fede-p1
+hostname fede-x1
 ip nht resolve-via-default
 ipv6 nht resolve-via-default
 vrf red
@@ -8,7 +8,6 @@ vrf red
 exit-vrf
 
 route-map allowall permit 1
-
 router bgp 64512
   no bgp ebgp-requires-policy
   no bgp network import-check
