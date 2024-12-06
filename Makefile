@@ -135,7 +135,7 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 	$(KUSTOMIZE) build config/crd | $(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f -
 
 .PHONY: deploy
-deploy: deploy-cluster deploy-controller ## Deploy cluster and controller.
+deploy: kind deploy-cluster deploy-controller ## Deploy cluster and controller.
 
 .PHONY: deploy-with-prometheus
 deploy-with-prometheus: KUSTOMIZE_LAYER=prometheus
@@ -219,6 +219,11 @@ ginkgo: $(GINKGO) ## Download ginkgo locally if necessary. If wrong version is i
 $(GINKGO): $(LOCALBIN)
 	test -s $(LOCALBIN)/ginkgo && $(LOCALBIN)/ginkgo version | grep -q $(GINKGO_VERSION) || \
 	GOBIN=$(LOCALBIN) go install github.com/onsi/ginkgo/v2/ginkgo@$(GINKGO_VERSION)
+
+kind: $(KIND) ## Download kind locally if necessary. If wrong version is installed, it will be overwritten.
+$(KIND): $(LOCALBIN)
+	test -s $(LOCALBIN)/kind && $(LOCALBIN)/kind --version | grep -q $(KIND_VERSION) || \
+	GOBIN=$(LOCALBIN) go install sigs.k8s.io/kind@$(KIND_VERSION)
 
 .PHONY:
 crd-ref-docs: $(APIDOCSGEN) ## Download the api-doc-gen tool locally if necessary.

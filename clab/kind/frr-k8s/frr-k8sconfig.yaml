@@ -9,7 +9,7 @@ spec:
     - asn: 64515
       neighbors:
       - address: 192.169.10.1
-        asn: 64512
+        asn: 64514
         toReceive:
           allowed:
             mode: all

@@ -12,12 +12,23 @@ import (
 	"k8s.io/utils/ptr"
 )
 
+type FRRConversionError struct {
+	msg string
+}
+
+func (e FRRConversionError) Error() string {
+	return e.msg
+}
+
 func APItoFRR(nodeIndex int, underlays []v1alpha1.Underlay, vnis []v1alpha1.VNI, logLevel string) (frr.Config, error) {
 	if len(underlays) > 1 {
-		return frr.Config{}, fmt.Errorf("can't have more than one underlay")
+		return frr.Config{}, FRRConversionError{msg: "can't have more than one underlay"}
 	}
-	if len(underlays) == 0 || len(vnis) == 0 {
-		return frr.Config{}, nil
+	if len(underlays) == 0 {
+		return frr.Config{}, FRRConversionError{msg: "no underlays defined"}
+	}
+	if len(vnis) == 0 {
+		return frr.Config{}, FRRConversionError{msg: "no vnis defined"}
 	}
 
 	underlay := underlays[0]
@@ -30,7 +41,7 @@ func APItoFRR(nodeIndex int, underlays []v1alpha1.Underlay, vnis []v1alpha1.VNI,
 	for _, n := range underlay.Spec.Neighbors {
 		frrNeigh, err := neighborToFRR(n)
 		if err != nil {
-			return frr.Config{}, fmt.Errorf("failed to translate underlay neighbor %s to frr", neighborName(n))
+			return frr.Config{}, fmt.Errorf("failed to translate underlay neighbor %s to frr, err: %w", neighborName(n), err)
 		}
 		underlayNeighbors = append(underlayNeighbors, *frrNeigh)
 	}
@@ -58,14 +69,14 @@ func APItoFRR(nodeIndex int, underlays []v1alpha1.Underlay, vnis []v1alpha1.VNI,
 func vniToFRR(vni v1alpha1.VNI, nodeIndex int) (frr.VNIConfig, error) {
 	veths, err := ipam.VethIPs(vni.Spec.LocalCIDR, nodeIndex)
 	if err != nil {
-		return frr.VNIConfig{}, fmt.Errorf("failed to get veths ips for vni %v", vni)
+		return frr.VNIConfig{}, fmt.Errorf("failed to get veths ips for vni %s: %w", vni.Name, err)
 	}
 
 	vniNeighbor, err := neighborToFRR(vni.Spec.LocalNeighbor)
 	if err != nil {
 		return frr.VNIConfig{}, fmt.Errorf("failed to translate vni neighbor %s to frr", neighborName(vni.Spec.LocalNeighbor))
 	}
-	vniNeighbor.Addr = veths.HostSide
+	vniNeighbor.Addr = veths.HostSide.IP.String()
 
 	res := frr.VNIConfig{
 		ASN:           vni.Spec.ASN,
@@ -82,8 +93,8 @@ func neighborToFRR(n v1alpha1.Neighbor) (*frr.NeighborConfig, error) {
 		return nil, fmt.Errorf("failed to find ipfamily for %s, %w", n.Address, err)
 	}
 
-	if n.ASN != 0 {
-		return nil, fmt.Errorf("neighbor %s has both ASN and DynamicASN specified", neighborName(n))
+	if n.ASN == 0 {
+		return nil, fmt.Errorf("neighbor %s does not have ASN", n.Address)
 	}
 
 	res := &frr.NeighborConfig{

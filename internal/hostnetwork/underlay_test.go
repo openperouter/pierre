@@ -1,6 +1,7 @@
 package hostnetwork
 
 import (
+	"context"
 	"errors"
 	"os"
 	"runtime"
@@ -42,7 +43,7 @@ func TestUnderlay(t *testing.T) {
 		VtepIP:   "192.168.1.1/32",
 		TargetNS: underlayTestNS,
 	}
-	err = SetupUnderlay(params)
+	err = SetupUnderlay(context.Background(), params)
 	if err != nil {
 		t.Fatalf("failed to setup underlay %s", err)
 	}

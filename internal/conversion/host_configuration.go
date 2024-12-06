@@ -43,8 +43,8 @@ func APItoHostConfig(nodeIndex int, targetNS string, underlays []v1alpha1.Underl
 			TargetNS:   targetNS,
 			VTEPIP:     vtepIP,
 			VNI:        int(vni.Spec.VNI),
-			VethHostIP: vethIPs.HostSide,
-			VethNSIP:   vethIPs.ContainerSide,
+			VethHostIP: vethIPs.HostSide.String(),
+			VethNSIP:   vethIPs.ContainerSide.String(),
 			VXLanPort:  int(vni.Spec.VXLanPort),
 		}
 		vniParams = append(vniParams, v)

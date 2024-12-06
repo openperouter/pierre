@@ -1,6 +1,7 @@
 package hostnetwork
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -32,7 +33,7 @@ func TestVNI(t *testing.T) {
 		VNI:        vni,
 		VXLanPort:  vxLanPort,
 	}
-	err := SetupVNI(params)
+	err := SetupVNI(context.Background(), params)
 	if err != nil {
 		t.Fatalf("failed to setup vni: %v", err)
 	}
@@ -87,13 +88,25 @@ func validateNS(t *testing.T, params VNIParams) {
 		t.Fatal("failed to check addrGenMode, expecting true")
 	}
 
+	vrfLink, err := netlink.LinkByName(params.VRF)
+	if err != nil {
+		t.Fatalf("failed to get vrf by name: %v", err)
+	}
+	vrf := vrfLink.(*netlink.Vrf)
+	if vrf.OperState != netlink.OperUp {
+		t.Fatalf("vrf is not up: %s", vrf.OperState)
+	}
+
 	bridgeLink, err := netlink.LinkByName(bridgeName(params.VNI))
 	if err != nil {
 		t.Fatalf("failed to get vxlan by name: %v", err)
 	}
 	bridge := bridgeLink.(*netlink.Bridge)
-	if bridge.OperState != netlink.OperUp {
+	if bridge.OperState != netlink.OperUnknown {
 		t.Fatalf("bridge is not up: %s", bridge.OperState)
+	}
+	if bridge.MasterIndex != vrf.Index {
+		t.Fatalf("bridge master is not vrf")
 	}
 
 	addrGenModeNone, err = checkAddrGenModeNone(t, bridge)
@@ -117,6 +130,10 @@ func validateNS(t *testing.T, params VNIParams) {
 	if peLegLink.Attrs().OperState != netlink.OperUp {
 		t.Fatalf("peLegLink is not up: %s", peLegLink.Attrs().OperState)
 	}
+	if peLegLink.Attrs().MasterIndex != vrf.Index {
+		t.Fatalf("peLegLink master is not vrf")
+	}
+
 	hasIP, err := interfaceHasIP(peLegLink, params.VethNSIP)
 	if err != nil {
 		t.Fatalf("failed to undersand if pe leg has ip: %v", err)

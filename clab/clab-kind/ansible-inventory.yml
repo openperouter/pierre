@@ -16,10 +16,10 @@ all:
     linux:
       hosts:
         clab-kind-HOST1:
-          ansible_host: 172.20.20.3
-        clab-kind-leaf1:
-          ansible_host: 172.20.20.2
-        clab-kind-leaf2:
           ansible_host: 172.20.20.4
-        clab-kind-spine:
+        clab-kind-leaf1:
           ansible_host: 172.20.20.5
+        clab-kind-leaf2:
+          ansible_host: 172.20.20.3
+        clab-kind-spine:
+          ansible_host: 172.20.20.2

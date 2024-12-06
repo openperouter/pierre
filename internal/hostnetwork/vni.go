@@ -63,6 +63,11 @@ func SetupVNI(ctx context.Context, params VNIParams) error {
 			return err
 		}
 
+		err = netlink.LinkSetMaster(peVeth, vrf)
+		if err != nil {
+			return fmt.Errorf("failed to set vrf %s as marter of pe veth %s", vrf.Name, peVeth.Attrs().Name)
+		}
+
 		slog.DebugContext(ctx, "setting up bridge")
 		bridge, err := setupBridge(params, vrf)
 		if err != nil {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"path"
 	"time"
 
 	"google.golang.org/grpc"
@@ -82,7 +83,7 @@ func (r *Runtime) NetworkNamespace(ctx context.Context, podUID string) (string, 
 			continue
 		}
 
-		networkNamespace = namespace.Path
+		_, networkNamespace = path.Split(namespace.Path)
 		break
 	}
 

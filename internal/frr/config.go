@@ -136,12 +136,12 @@ func generateAndReloadConfigFile(ctx context.Context, config *Config, updater Co
 
 	configString, err := templateConfig(config)
 	if err != nil {
-		slog.Error("op", "reload", "error", err, "cause", "template", "config", config)
+		slog.Error("failed to generate config from template", "error", err, "cause", "template", "config", config)
 		return err
 	}
 	err = updater(ctx, configString)
 	if err != nil {
-		slog.Error("op", "reload", "error", err, "cause", "updater", "config", config)
+		slog.Error("failed to write frr config", "error", err, "cause", "updater", "config", config)
 		return err
 	}
 	return nil

@@ -67,11 +67,11 @@ func checkVXLanConfigured(vxLan *netlink.Vxlan, bridgeIndex, loopbackIndex int, 
 		return fmt.Errorf("master index is not bridge index: %d, %d", vxLan.MasterIndex, bridgeIndex)
 	}
 
-	if vxLan.VxlanId != int(params.VNI) {
+	if vxLan.VxlanId != params.VNI {
 		return fmt.Errorf("vxlanid is not vni: %d, %d", vxLan.VxlanId, params.VNI)
 	}
 
-	if vxLan.Port != int(params.VXLanPort) {
+	if vxLan.Port != params.VXLanPort {
 		return fmt.Errorf("port is not one coming from params: %d, %d", vxLan.Port, params.VXLanPort)
 	}
 
@@ -97,6 +97,7 @@ func createVXLan(params VNIParams, bridge *netlink.Bridge) (*netlink.Vxlan, erro
 
 	name := vxLanName(params.VNI)
 
+	vtepIP, _, _ := net.ParseCIDR(params.VTEPIP) // TODO
 	vxlan := &netlink.Vxlan{LinkAttrs: netlink.LinkAttrs{
 		Name:        name,
 		MasterIndex: bridge.Index,
@@ -104,7 +105,7 @@ func createVXLan(params VNIParams, bridge *netlink.Bridge) (*netlink.Vxlan, erro
 		VxlanId:      params.VNI,
 		Port:         params.VXLanPort,
 		Learning:     false,
-		SrcAddr:      net.ParseIP(params.VTEPIP),
+		SrcAddr:      vtepIP,
 		VtepDevIndex: loopback.Attrs().Index,
 	}
 	err = netlink.LinkAdd(vxlan)

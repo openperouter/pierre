@@ -8,8 +8,10 @@ spec:
   vrf: red
   vni: 100
   vxlanport: 4789
-  localCIDR: 192.169.10.0/24
+  localcidr: 192.169.10.0/24
   localNeighbor:
-    - asn: 64515
-      address: 192.169.10.0
+    asn: 64515
+    address: 192.169.10.0
+    holdTime: 180s
+    keepaliveTime: 60s
 

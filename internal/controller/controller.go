@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -136,6 +137,9 @@ func (r *PERouterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	})
 
+	if err := setPodNodeNameIndex(mgr); err != nil {
+		return err
+	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&periov1alpha1.Underlay{}).
 		Watches(&v1.Pod{}, &handler.EnqueueRequestForObject{}).
@@ -143,4 +147,25 @@ func (r *PERouterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		WithEventFilter(p).
 		Named("underlay").
 		Complete(r)
+}
+
+func setPodNodeNameIndex(mgr ctrl.Manager) error {
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1.Pod{}, "spec.NodeName", func(rawObj client.Object) []string {
+		pod, ok := rawObj.(*v1.Pod)
+		if pod == nil {
+			slog.Error("podindexer", "error", "received nil pod")
+			return nil
+		}
+		if !ok {
+			slog.Error("podindexer", "error", "received object that is not epslice", "object", rawObj.GetObjectKind().GroupVersionKind().Kind)
+			return nil
+		}
+		if pod.Spec.NodeName != "" {
+			return []string{pod.Spec.NodeName}
+		}
+		return nil
+	}); err != nil {
+		return fmt.Errorf("failed to set node indexer %w", err)
+	}
+	return nil
 }

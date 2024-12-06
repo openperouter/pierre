@@ -5,7 +5,7 @@ metadata:
 spec:
   containers:
     - name: client
-      image: praqma/network-multitool:latest
+      image: quay.io/fedora/fedora:latest
       command: ["/bin/sh", "-c"]
       args:
         ["sleep INF"]

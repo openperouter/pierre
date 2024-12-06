@@ -82,6 +82,18 @@ func moveNicToNamespace(ctx context.Context, nic string, ns netns.NsHandle) erro
 	slog.DebugContext(ctx, "move nic to namespace", "nic", nic, "namespace", ns.String())
 	defer slog.DebugContext(ctx, "move nic to namespace end", "nic", nic, "namespace", ns.String())
 
+	err := inNamespace(ns, func() error {
+		_, err := netlink.LinkByName(nic)
+		if err != nil {
+			return fmt.Errorf("setupUnderlay: Failed to find link %s: %w", nic, err)
+		}
+		return nil
+	})
+	if err == nil {
+		slog.DebugContext(ctx, "nic is already in namespace", "nic", nic, "namespace", ns.String())
+		return nil
+	}
+
 	link, err := netlink.LinkByName(nic)
 	if err != nil {
 		return fmt.Errorf("setupUnderlay: Failed to find link %s: %w", nic, err)
@@ -97,6 +109,11 @@ func moveNicToNamespace(ctx context.Context, nic string, ns netns.NsHandle) erro
 		return fmt.Errorf("setupUnderlay: Failed to move %s to network namespace %s: %w", link.Attrs().Name, ns.String(), err)
 	}
 	inNamespace(ns, func() error {
+		err := netlink.LinkSetUp(link)
+		if err != nil {
+			return fmt.Errorf("setupUnderlay: Failed to set %s up in network namespace %s: %w", link.Attrs().Name, ns.String(), err)
+		}
+
 		for _, a := range addresses {
 			err := netlink.AddrAdd(link, &a)
 			if err != nil {

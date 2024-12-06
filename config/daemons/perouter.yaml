@@ -60,6 +60,8 @@ spec:
         - "--frrconfig=/etc/perouter/frr.conf"
         - "--loglevel=debug"
         volumeMounts:
+          - name: frrconfig
+            mountPath: /etc/frr
           - name: frr-sockets
             mountPath: /var/run/frr
           - name: frrsharedconfig

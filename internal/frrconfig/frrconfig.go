@@ -34,12 +34,12 @@ var execCommand = exec.Command
 
 func reloadAction(path string, action Action) error {
 	reloadParameter := "--" + string(action)
-	cmd := execCommand("python3", "-c", reloaderPath, reloadParameter, path)
+	cmd := execCommand("python3", reloaderPath, reloadParameter, path)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		slog.Error("frr update failed", "action", action, "error", err, "output", output)
+		slog.Error("frr update failed", "action", action, "error", err, "output", string(output))
 		return fmt.Errorf("frr update %s failed: %w", action, err)
 	}
-	slog.Debug("frr update succeeded", "action", action, "output", output)
+	slog.Debug("frr update succeeded", "action", action, "output", string(output))
 	return nil
 }
