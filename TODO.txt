@@ -45,3 +45,5 @@ check if the router pod status is ready before making the call
 I am getting an event for a pod on the default ns!
 
 mess with cidr / ip vtep ip
+
+if underlay changes, just kill the router pod

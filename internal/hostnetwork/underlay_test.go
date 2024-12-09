@@ -47,6 +47,7 @@ func TestUnderlay(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to setup underlay %s", err)
 	}
+
 	_ = inNamespace(newNs, func() error {
 		links, err := netlink.LinkList()
 		if err != nil {
@@ -55,7 +56,7 @@ func TestUnderlay(t *testing.T) {
 		loopbackFound := false
 		mainNicFound := false
 		for _, l := range links {
-			if l.Attrs().Name == "lo" {
+			if l.Attrs().Name == UnderlayLoopback {
 				loopbackFound = true
 				validateIP(t, l, params.VtepIP)
 			}

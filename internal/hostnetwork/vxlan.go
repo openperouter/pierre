@@ -4,12 +4,14 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strconv"
+	"strings"
 
 	"github.com/vishvananda/netlink"
 )
 
 func setupVXLan(params VNIParams, bridge *netlink.Bridge) error {
-	loopback, err := netlink.LinkByName("lo")
+	loopback, err := netlink.LinkByName(UnderlayLoopback)
 	if err != nil {
 		return fmt.Errorf("failed to get loopback by name: %w", err)
 	}
@@ -90,7 +92,7 @@ func checkVXLanConfigured(vxLan *netlink.Vxlan, bridgeIndex, loopbackIndex int, 
 }
 
 func createVXLan(params VNIParams, bridge *netlink.Bridge) (*netlink.Vxlan, error) {
-	loopback, err := netlink.LinkByName("lo")
+	loopback, err := netlink.LinkByName(UnderlayLoopback)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get loopback by name: %w", err)
 	}
@@ -115,6 +117,17 @@ func createVXLan(params VNIParams, bridge *netlink.Bridge) (*netlink.Vxlan, erro
 	return vxlan, nil
 }
 
+const vniPrefix = "vni"
+
 func vxLanName(vni int) string {
-	return fmt.Sprintf("vni%d", vni)
+	return fmt.Sprintf("%s%d", vniPrefix, vni)
+}
+
+func vniFromVXLanName(name string) (int, error) {
+	vni := strings.TrimPrefix(name, vniPrefix)
+	res, err := strconv.Atoi(vni)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get vni for vxlan %s", name)
+	}
+	return res, nil
 }

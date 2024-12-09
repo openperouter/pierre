@@ -2,6 +2,7 @@ package hostnetwork
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -123,4 +124,15 @@ func moveNicToNamespace(ctx context.Context, nic string, ns netns.NsHandle) erro
 		return nil
 	})
 	return nil
+}
+
+func nsHasNic(nic, ns string) (bool, error) {
+	_, err := netlink.LinkByName(nic)
+	if err != nil && errors.As(err, &netlink.LinkNotFoundError{}) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("failed to find link %s in ns %s: %w", nic, ns, err)
+	}
+	return true, nil
 }

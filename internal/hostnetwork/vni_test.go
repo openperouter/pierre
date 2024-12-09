@@ -48,7 +48,7 @@ func TestVNI(t *testing.T) {
 
 func validateHostLeg(t *testing.T, params VNIParams) {
 	t.Helper()
-	hostSide, _ := namesForVeth(params.VRF)
+	hostSide, _ := vethLegsForVRF(params.VRF)
 	hostLegLink, err := netlink.LinkByName(hostSide)
 	if err != nil {
 		t.Fatalf("failed to get link by name: %v", err)
@@ -67,7 +67,7 @@ func validateHostLeg(t *testing.T, params VNIParams) {
 
 func validateNS(t *testing.T, params VNIParams) {
 	t.Helper()
-	loopback, err := netlink.LinkByName("lo")
+	loopback, err := netlink.LinkByName(UnderlayLoopback)
 	if err != nil {
 		t.Fatalf("failed to get loopback by name: %v", err)
 	}
@@ -122,7 +122,7 @@ func validateNS(t *testing.T, params VNIParams) {
 		t.Fatalf("invalid vxlan %v", err)
 	}
 
-	_, peSide := namesForVeth(params.VRF)
+	_, peSide := vethLegsForVRF(params.VRF)
 	peLegLink, err := netlink.LinkByName(peSide)
 	if err != nil {
 		t.Fatalf("failed to get peLegLink by name: %v", err)

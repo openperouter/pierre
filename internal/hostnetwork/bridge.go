@@ -3,6 +3,8 @@ package hostnetwork
 import (
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/vishvananda/netlink"
 )
@@ -53,6 +55,21 @@ func createBridge(name string, vrfIndex int) (*netlink.Bridge, error) {
 	}
 
 	return bridge, nil
+}
+
+const bridgePrefix = "br"
+
+func BridgeName(vni int) string {
+	return fmt.Sprintf("%s%d", bridgePrefix, vni)
+}
+
+func vniFromBridgeName(name string) (int, error) {
+	vni := strings.TrimPrefix(name, bridgePrefix)
+	res, err := strconv.Atoi(vni)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get vni for bridge %s", name)
+	}
+	return res, nil
 }
 
 func bridgeName(vni int) string {

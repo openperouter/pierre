@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
@@ -81,6 +82,76 @@ func SetupVNI(ctx context.Context, params VNIParams) error {
 		}
 		return nil
 	})
+
+	return nil
+}
+
+func RemoveNonConfiguredVNIs(ns netns.NsHandle, params []VNIParams) error {
+	vrfs := map[string]bool{}
+	vnis := map[int]bool{}
+	for _, p := range params {
+		vrfs[p.VRF] = true
+		vnis[p.VNI] = true
+	}
+	hostLinks, err := netlink.LinkList()
+	if err != nil {
+		return fmt.Errorf("remove non configured vnis: failed to list links: %w", err)
+	}
+	for _, hl := range hostLinks {
+		if hl.Type() == "veth" && strings.HasPrefix(hl.Attrs().Name, HostVethPrefix) {
+			vrf := vrfForHostLeg(hl.Attrs().Name)
+			if vrfs[vrf] {
+				continue
+			}
+			if err := netlink.LinkDel(hl); err != nil {
+				return fmt.Errorf("remove host leg: %s %w", hl.Attrs().Name, err)
+			}
+		}
+	}
+
+	err = inNamespace(ns, func() error {
+		links, err := netlink.LinkList()
+		if err != nil {
+			return fmt.Errorf("remove non configured vnis: failed to list links: %w", err)
+		}
+
+		if err := clearLinks("vxlan", vnis, links, vniFromVXLanName); err != nil {
+			return err
+		}
+		if err := clearLinks("bridge", vnis, links, vniFromBridgeName); err != nil {
+			return err
+		}
+
+		for _, l := range links {
+			if l.Type() == "vrf" && !vrfs[l.Attrs().Name] {
+				if err := netlink.LinkDel(l); err != nil {
+					return fmt.Errorf("remove non configured vnis: failed to delete vrf %s %w", l.Attrs().Name, err)
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func clearLinks(linkType string, vnis map[int]bool, links []netlink.Link, vniFromName func(string) (int, error)) error {
+	for _, l := range links {
+		if l.Type() == linkType {
+			vni, err := vniFromName(l.Attrs().Name)
+			if err != nil {
+				return fmt.Errorf("remove non configured vnis: failed to get vni for %s %w", linkType, err)
+			}
+			if _, ok := vnis[vni]; ok {
+				continue
+			}
+			if err := netlink.LinkDel(l); err != nil {
+				return fmt.Errorf("remove non configured vnis: failed to delete %s %s %w", linkType, l.Attrs().Name, err)
+			}
+		}
+	}
 
 	return nil
 }
