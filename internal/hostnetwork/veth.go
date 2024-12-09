@@ -69,11 +69,12 @@ func createVeth(vrfName string) (*netlink.Veth, error) {
 
 func vethLegsForVRF(name string) (string, string) {
 	hostSide := HostVethPrefix + name
-	peSide := "pe" + name
+	peSide := PEVethPrefix + name
 	return hostSide, peSide
 }
 
 const HostVethPrefix = "host"
+const PEVethPrefix = "pe"
 
 func vrfForHostLeg(name string) string {
 	return strings.TrimPrefix(name, HostVethPrefix)

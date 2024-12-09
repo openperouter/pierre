@@ -81,7 +81,8 @@ func checkVXLanConfigured(vxLan *netlink.Vxlan, bridgeIndex, loopbackIndex int, 
 		return fmt.Errorf("learning is enabled")
 	}
 
-	if !vxLan.SrcAddr.Equal(net.ParseIP(params.VTEPIP)) {
+	vtepIP, _, _ := net.ParseCIDR(params.VTEPIP) // TODO
+	if !vxLan.SrcAddr.Equal(vtepIP) {
 		return fmt.Errorf("src addr is not one coming from params: %v, %v", vxLan.SrcAddr, params.VTEPIP)
 	}
 

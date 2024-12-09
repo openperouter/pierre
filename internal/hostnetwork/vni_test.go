@@ -2,47 +2,152 @@ package hostnetwork
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/vishvananda/netlink"
+	"github.com/vishvananda/netns"
 )
 
 const testNSName = "testns"
 
+// TODO sleeps
+
 func TestVNI(t *testing.T) {
 	cleanTest(t, testNSName)
-	t.Cleanup(func() {
-		cleanTest(t, testNSName)
+	setup := func() netns.NsHandle {
+		_, testNS := createTestNS(t, testNSName)
+		setupLoopback(t, testNS)
+		return testNS
+	}
+
+	t.Run("single vni", func(t *testing.T) {
+		testNS := setup()
+		t.Cleanup(func() {
+			cleanTest(t, testNSName)
+		})
+
+		params := VNIParams{
+			VRF:        "testred",
+			TargetNS:   testNSName,
+			VTEPIP:     "192.170.0.9/32",
+			VethHostIP: "192.168.9.1/32",
+			VethNSIP:   "192.168.9.0/32",
+			VNI:        100,
+			VXLanPort:  4789,
+		}
+
+		err := SetupVNI(context.Background(), params)
+		if err != nil {
+			t.Fatalf("failed to setup vni: %v", err)
+		}
+
+		time.Sleep(5 * time.Second)
+		validateHostLeg(t, params)
+
+		_ = inNamespace(testNS, func() error {
+			validateNS(t, params)
+			return nil
+		})
+
 	})
-	_, testNS := createTestNS(t, testNSName)
 
-	vtepIP := "192.170.0.9/24"
-	vethHostIP := "192.168.9.0/32"
-	vethNSIP := "192.168.9.0/32"
-	vni := 100
-	vxLanPort := 4789
-	params := VNIParams{
-		VRF:        "testvni",
-		TargetNS:   testNSName,
-		VTEPIP:     vtepIP,
-		VethHostIP: vethHostIP,
-		VethNSIP:   vethNSIP,
-		VNI:        vni,
-		VXLanPort:  vxLanPort,
-	}
-	err := SetupVNI(context.Background(), params)
-	if err != nil {
-		t.Fatalf("failed to setup vni: %v", err)
-	}
+	t.Run("multiple vnis + cleanup", func(t *testing.T) {
+		testNS := setup()
+		t.Cleanup(func() {
+			cleanTest(t, testNSName)
+		})
 
-	validateHostLeg(t, params)
+		params := []VNIParams{
+			{
 
-	_ = inNamespace(testNS, func() error {
-		validateNS(t, params)
-		return nil
+				VRF:        "testred",
+				TargetNS:   testNSName,
+				VTEPIP:     "192.170.0.9/32",
+				VethHostIP: "192.168.9.1/32",
+				VethNSIP:   "192.168.9.0/32",
+				VNI:        100,
+				VXLanPort:  4789,
+			},
+			{
+				VRF:        "testblue",
+				TargetNS:   testNSName,
+				VTEPIP:     "192.170.0.10/32",
+				VethHostIP: "192.168.9.2/32",
+				VethNSIP:   "192.168.9.3/32",
+				VNI:        101,
+				VXLanPort:  4789,
+			},
+		}
+		for _, p := range params {
+			err := SetupVNI(context.Background(), p)
+			if err != nil {
+				t.Fatalf("failed to setup vni: %v", err)
+			}
+			time.Sleep(5 * time.Second)
+			validateHostLeg(t, p)
+			_ = inNamespace(testNS, func() error {
+				validateNS(t, p)
+				return nil
+			})
+		}
+
+		remaining := params[0]
+		toDelete := params[1]
+		err := RemoveNonConfiguredVNIs(testNS, []VNIParams{remaining})
+		if err != nil {
+			t.Fatalf("failed to remove non configured vnis: %v", err)
+		}
+		time.Sleep(5 * time.Second)
+		validateHostLeg(t, remaining)
+		_ = inNamespace(testNS, func() error {
+			validateNS(t, remaining)
+			return nil
+		})
+
+		hostSide, _ := vethLegsForVRF(toDelete.VRF)
+		checkLinkdeleted(t, hostSide)
+		validateVNIIsNotConfigured(t, toDelete)
+	})
+
+	t.Run("creation is idempotent", func(t *testing.T) {
+		testNS := setup()
+		t.Cleanup(func() {
+			cleanTest(t, testNSName)
+		})
+
+		params := VNIParams{
+			VRF:        "testred",
+			TargetNS:   testNSName,
+			VTEPIP:     "192.170.0.9/32",
+			VethHostIP: "192.168.9.1/32",
+			VethNSIP:   "192.168.9.0/32",
+			VNI:        100,
+			VXLanPort:  4789,
+		}
+
+		err := SetupVNI(context.Background(), params)
+		if err != nil {
+			t.Fatalf("failed to setup vni: %v", err)
+		}
+
+		err = SetupVNI(context.Background(), params)
+		if err != nil {
+			t.Fatalf("failed to setup vni second time: %v", err)
+		}
+
+		time.Sleep(5 * time.Second)
+		validateHostLeg(t, params)
+
+		_ = inNamespace(testNS, func() error {
+			validateNS(t, params)
+			return nil
+		})
+
 	})
 }
 
@@ -54,14 +159,15 @@ func validateHostLeg(t *testing.T, params VNIParams) {
 		t.Fatalf("failed to get link by name: %v", err)
 	}
 	if hostLegLink.Attrs().OperState != netlink.OperUp {
-		t.Fatalf("host leg is not up: %s", hostLegLink.Attrs().OperState)
+		t.Fatalf("host leg %s is not up: %s", hostSide, hostLegLink.Attrs().OperState)
 	}
 	hasIP, err := interfaceHasIP(hostLegLink, params.VethHostIP)
 	if err != nil {
 		t.Fatalf("failed to undersand if host leg has ip: %v", err)
 	}
 	if !hasIP {
-		t.Fatalf("host leg doesn't have ip %s", params.VethHostIP)
+		addresses, _ := netlink.AddrList(hostLegLink, netlink.FAMILY_ALL)
+		t.Fatalf("host leg doesn't have ip %s %v", params.VethHostIP, addresses)
 	}
 }
 
@@ -102,7 +208,7 @@ func validateNS(t *testing.T, params VNIParams) {
 		t.Fatalf("failed to get vxlan by name: %v", err)
 	}
 	bridge := bridgeLink.(*netlink.Bridge)
-	if bridge.OperState != netlink.OperUnknown {
+	if bridge.OperState != netlink.OperUp {
 		t.Fatalf("bridge is not up: %s", bridge.OperState)
 	}
 	if bridge.MasterIndex != vrf.Index {
@@ -143,6 +249,27 @@ func validateNS(t *testing.T, params VNIParams) {
 	}
 }
 
+func checkLinkdeleted(t *testing.T, name string) {
+	_, err := netlink.LinkByName(name)
+	if err == nil {
+		t.Fatalf("link %s is not deleted %s", name, err)
+	}
+	if !errors.As(err, &netlink.LinkNotFoundError{}) {
+		t.Fatalf("failed to get link %s by name: %v", name, err)
+	}
+}
+
+func validateVNIIsNotConfigured(t *testing.T, params VNIParams) {
+	t.Helper()
+
+	checkLinkdeleted(t, vxLanName(params.VNI))
+	checkLinkdeleted(t, params.VRF)
+	checkLinkdeleted(t, bridgeName(params.VNI))
+
+	_, peSide := vethLegsForVRF(params.VRF)
+	checkLinkdeleted(t, peSide)
+}
+
 func checkAddrGenModeNone(t *testing.T, l netlink.Link) (bool, error) {
 	t.Helper()
 	fileName := fmt.Sprintf("/proc/sys/net/ipv6/conf/%s/addr_gen_mode", l.Attrs().Name)
@@ -154,4 +281,18 @@ func checkAddrGenModeNone(t *testing.T, l netlink.Link) (bool, error) {
 		return true, nil
 	}
 	return false, nil
+}
+
+func setupLoopback(t *testing.T, ns netns.NsHandle) {
+	_ = inNamespace(ns, func() error {
+		_, err := netlink.LinkByName(UnderlayLoopback)
+		if errors.As(err, &netlink.LinkNotFoundError{}) {
+			loopback := &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: UnderlayLoopback}}
+			err = netlink.LinkAdd(loopback)
+			if err != nil {
+				t.Fatalf("setup lookback: failed to create %s", UnderlayLoopback)
+			}
+		}
+		return nil
+	})
 }

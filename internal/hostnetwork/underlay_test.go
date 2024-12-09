@@ -106,12 +106,25 @@ func cleanTest(t *testing.T, namespace string) {
 		t.Fatalf("failed to list links: %v", err)
 	}
 	for _, l := range links {
-		if strings.HasPrefix(l.Attrs().Name, "test") {
+		if strings.HasPrefix(l.Attrs().Name, "test") ||
+			strings.HasPrefix(l.Attrs().Name, PEVethPrefix) ||
+			strings.HasPrefix(l.Attrs().Name, HostVethPrefix) {
 			err := netlink.LinkDel(l)
 			if err != nil {
 				t.Fatalf("failed remove link %s: %v", l.Attrs().Name, err)
 			}
 		}
+	}
+	loopback, err := netlink.LinkByName(UnderlayLoopback)
+	if errors.As(err, &netlink.LinkNotFoundError{}) {
+		return
+	}
+	if err != nil {
+		t.Fatalf("failed to find link %s: %v", UnderlayLoopback, err)
+	}
+	err = netlink.LinkDel(loopback)
+	if err != nil {
+		t.Fatalf("failed remove link %s: %v", UnderlayLoopback, err)
 	}
 }
 
