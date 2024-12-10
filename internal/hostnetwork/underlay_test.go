@@ -13,42 +13,115 @@ import (
 )
 
 const (
-	externalInterfaceIP   = "192.170.0.9/24"
-	underlayTestNS        = "underlaytest"
-	underlayTestInterface = "testunderlayext"
+	externalInterfaceIP       = "192.170.0.9/24"
+	underlayTestNS            = "underlaytest"
+	underlayTestInterface     = "testundfirst"
+	underlayTestInterfaceEdit = "testundsec"
+	externalInterfaceEditIP   = "192.170.0.10/24"
 )
 
 func TestUnderlay(t *testing.T) {
 	cleanTest(t, underlayTestNS)
 
-	toMove := &netlink.Dummy{
-		LinkAttrs: netlink.LinkAttrs{
-			Name: underlayTestInterface,
-		},
-	}
-	err := netlink.LinkAdd(toMove)
-	if err != nil {
-		t.Fatalf("failed to create interface %s: %v", toMove.Name, err)
+	setup := func() netns.NsHandle {
+		toMove := &netlink.Dummy{
+			LinkAttrs: netlink.LinkAttrs{
+				Name: underlayTestInterface,
+			},
+		}
+		err := netlink.LinkAdd(toMove)
+		if err != nil {
+			t.Fatalf("failed to create interface %s: %v", toMove.Name, err)
+		}
+
+		err = assignIPToInterface(toMove, externalInterfaceIP)
+		if err != nil {
+			t.Fatalf("failed to assign ip to current interface: %v", err)
+		}
+		toEdit := &netlink.Dummy{
+			LinkAttrs: netlink.LinkAttrs{
+				Name: underlayTestInterfaceEdit,
+			},
+		}
+		err = netlink.LinkAdd(toEdit)
+		if err != nil {
+			t.Fatalf("failed to create interface %s: %v", toEdit.Name, err)
+		}
+
+		err = assignIPToInterface(toEdit, externalInterfaceEditIP)
+		if err != nil {
+			t.Fatalf("failed to assign ip to current interface: %v", err)
+		}
+
+		_, testNs := createTestNS(t, underlayTestNS)
+		return testNs
 	}
 
-	err = assignIPToInterface(toMove, externalInterfaceIP)
-	if err != nil {
-		t.Fatalf("failed to assign ip to current interface: %v", err)
-	}
+	t.Run("test single underlay", func(t *testing.T) {
+		cleanTest(t, underlayTestNS)
+		testNs := setup()
+		params := UnderlayParams{
+			MainNic:  underlayTestInterface,
+			VtepIP:   "192.168.1.1/32",
+			TargetNS: underlayTestNS,
+		}
+		err := SetupUnderlay(context.Background(), params)
+		if err != nil {
+			t.Fatalf("failed to setup underlay %s", err)
+		}
 
-	_, newNs := createTestNS(t, underlayTestNS)
+		validateUnderlay(t, testNs, externalInterfaceIP, params)
+	})
 
-	params := UnderlayParams{
-		MainNic:  underlayTestInterface,
-		VtepIP:   "192.168.1.1/32",
-		TargetNS: underlayTestNS,
-	}
-	err = SetupUnderlay(context.Background(), params)
-	if err != nil {
-		t.Fatalf("failed to setup underlay %s", err)
-	}
+	t.Run("test underlay is idempotent", func(t *testing.T) {
+		cleanTest(t, underlayTestNS)
+		testNs := setup()
+		params := UnderlayParams{
+			MainNic:  underlayTestInterface,
+			VtepIP:   "192.168.1.1/32",
+			TargetNS: underlayTestNS,
+		}
+		err := SetupUnderlay(context.Background(), params)
+		if err != nil {
+			t.Fatalf("failed to setup underlay %s", err)
+		}
+		err = SetupUnderlay(context.Background(), params)
+		if err != nil {
+			t.Fatalf("failed to setup underlay %s", err)
+		}
 
-	_ = inNamespace(newNs, func() error {
+		validateUnderlay(t, testNs, externalInterfaceIP, params)
+	})
+
+	t.Run("test underlay changes primary interface and vtep", func(t *testing.T) {
+		cleanTest(t, underlayTestNS)
+		testNs := setup()
+
+		params := UnderlayParams{
+			MainNic:  underlayTestInterface,
+			VtepIP:   "192.168.1.1/32",
+			TargetNS: underlayTestNS,
+		}
+		err := SetupUnderlay(context.Background(), params)
+		if err != nil {
+			t.Fatalf("failed to setup underlay %s", err)
+		}
+
+		params.MainNic = underlayTestInterfaceEdit
+		params.VtepIP = "192.168.1.2/32"
+
+		err = SetupUnderlay(context.Background(), params)
+		if err != nil {
+			t.Fatalf("failed to setup underlay %s", err)
+		}
+
+		validateUnderlay(t, testNs, externalInterfaceEditIP, params)
+	})
+	cleanTest(t, underlayTestNS)
+}
+
+func validateUnderlay(t *testing.T, ns netns.NsHandle, ipToValidate string, params UnderlayParams) {
+	_ = inNamespace(ns, func() error {
 		links, err := netlink.LinkList()
 		if err != nil {
 			t.Fatalf("failed to list links %v", err)
@@ -60,9 +133,10 @@ func TestUnderlay(t *testing.T) {
 				loopbackFound = true
 				validateIP(t, l, params.VtepIP)
 			}
-			if l.Attrs().Name == underlayTestInterface {
+			if l.Attrs().Name == params.MainNic {
 				mainNicFound = true
-				validateIP(t, l, externalInterfaceIP)
+				validateIP(t, l, ipToValidate)
+				validateIP(t, l, underlayNicSpecialAddr)
 			}
 
 		}
@@ -75,6 +149,7 @@ func TestUnderlay(t *testing.T) {
 
 		return nil
 	})
+
 }
 
 func validateIP(t *testing.T, l netlink.Link, address string) {
