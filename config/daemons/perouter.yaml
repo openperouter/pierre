@@ -92,9 +92,6 @@ spec:
       initContainers:
         # Copies the initial config files with the right permissions to the shared volume.
         - name: cp-frr-files
-          securityContext:
-            runAsUser: 100
-            runAsGroup: 101
           image: quay.io/frrouting/frr:master
           imagePullPolicy: IfNotPresent
           command: ["/bin/sh", "-c", "cp -rLf /tmp/frr/* /etc/frr/"]

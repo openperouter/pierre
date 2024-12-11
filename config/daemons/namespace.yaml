@@ -5,4 +5,5 @@ metadata:
     control-plane: controller-manager
     app.kubernetes.io/name: openperouter
     app.kubernetes.io/managed-by: kustomize
+    pod-security.kubernetes.io/enforce: privileged
   name: system

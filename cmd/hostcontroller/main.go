@@ -71,7 +71,7 @@ func main() {
 	)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
-	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	flag.StringVar(&probeAddr, "health-probe-bind-address", ":9081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&secureMetrics, "metrics-secure", true,
 		"If set, the metrics endpoint is served securely via HTTPS. Use --metrics-secure=false to use HTTP instead.")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
@@ -80,7 +80,7 @@ func main() {
 	flag.StringVar(&namespace, "namespace", "", "The namespace the controller runs in")
 	flag.StringVar(&logLevel, "loglevel", "info", "the verbosity of the process")
 	flag.StringVar(&frrConfigPath, "frrconfig", "/etc/perouter/frr/frr.conf", "the location of the frr configuration file")
-	flag.IntVar(&reloadPort, "reloadport", 8080, "the port of the reloader process")
+	flag.IntVar(&reloadPort, "reloadport", 9080, "the port of the reloader process")
 	flag.StringVar(&criSocket, "crisocket", "/var/run/containerd/containerd.sock", "the location of the cri socket")
 
 	flag.Parse()

@@ -35,7 +35,7 @@ var frrConfigPath string
 func main() {
 	var bindAddress string
 	var logLevel string
-	flag.StringVar(&bindAddress, "bindaddress", "0.0.0.0:8080", "The address the reloader endpoint binds to. ")
+	flag.StringVar(&bindAddress, "bindaddress", "0.0.0.0:9080", "The address the reloader endpoint binds to. ")
 	flag.StringVar(&frrConfigPath, "frrconfig", "/etc/frr/frr.conf", "The path the frr configuration is at")
 	flag.StringVar(&logLevel, "loglevel", "info", "The log level of the process")
 	flag.Parse()
