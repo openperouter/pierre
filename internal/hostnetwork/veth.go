@@ -8,15 +8,18 @@ import (
 	"strings"
 
 	"github.com/vishvananda/netlink"
+	"github.com/vishvananda/netns"
 )
 
-func setupVeth(ctx context.Context, vrfName string) (netlink.Link, netlink.Link, error) {
-	slog.DebugContext(ctx, "setting up veth", "veth", vrfName)
-	hostSide, peSide := vethLegsForVRF(vrfName)
+func setupVeth(ctx context.Context, name string, targetNS netns.NsHandle) (netlink.Link, netlink.Link, error) {
+	logger := slog.Default().With("veth", name)
+	logger.DebugContext(ctx, "setting up veth")
+	hostSide, _ := vethLegsForVRF(name)
 
 	link, err := netlink.LinkByName(hostSide)
 	if err != nil && errors.As(err, &netlink.LinkNotFoundError{}) {
-		link, err = createVeth(vrfName)
+		logger.DebugContext(ctx, "veth does not exist, creating")
+		link, err = createVeth(name)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -24,36 +27,45 @@ func setupVeth(ctx context.Context, vrfName string) (netlink.Link, netlink.Link,
 
 	vethHost, ok := link.(*netlink.Veth)
 	if !ok {
+		logger.DebugContext(ctx, "veth exists, but not a veth, deleting and creating")
 		err := netlink.LinkDel(link)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to delete link %v: %w", link, err)
 		}
-		vethHost, err = createVeth(vrfName)
+		vethHost, err = createVeth(name)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed create veth %s: %w", vrfName, err)
+			return nil, nil, fmt.Errorf("failed create veth %s: %w", name, err)
 		}
 	}
-	if vethHost.PeerName != peSide {
-		err := netlink.LinkDel(link)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to delete link %v: %w", link, err)
-		}
-		vethHost, err = createVeth(vrfName)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed create veth %s: %w", vrfName, err)
-		}
-	}
-
-	slog.DebugContext(ctx, "veth created veth", "veth", vrfName)
+	slog.DebugContext(ctx, "veth created veth", "veth", name)
 	peerIndex, err := netlink.VethPeerIndex(vethHost)
 	if err != nil {
-		return nil, nil, fmt.Errorf("could not find peer veth for %s: %w", vrfName, err)
+		return nil, nil, fmt.Errorf("could not find peer veth for %s: %w", name, err)
 	}
 	vethPE, err := netlink.LinkByIndex(peerIndex)
-	if err != nil {
-		return nil, nil, fmt.Errorf("could not find peer veth by index for %s: %w", vrfName, err)
+	alreadyInNamespace := false
+	if err != nil && errors.As(err, &netlink.LinkNotFoundError{}) { // Try to look into the namespace
+		if err := inNamespace(targetNS, func() error {
+			vethPE, err = netlink.LinkByIndex(peerIndex)
+			if err != nil {
+				return err
+			}
+			return nil
+		}); err != nil {
+			return nil, nil, fmt.Errorf("could not find peer veth by index for %s: %w", name, err)
+		}
+		slog.DebugContext(ctx, "pe leg already in ns", "pe veth", vethPE.Attrs().Name)
+		alreadyInNamespace = true
 	}
-	slog.DebugContext(ctx, "veth is up", "vrf", vrfName)
+
+	if !alreadyInNamespace {
+		if err = netlink.LinkSetNsFd(vethPE, int(targetNS)); err != nil {
+			return nil, nil, fmt.Errorf("setupUnderlay: Failed to move %s to network namespace %s: %w", vethPE.Attrs().Name, targetNS.String(), err)
+		}
+		slog.DebugContext(ctx, "pe leg moved to ns", "pe veth", vethPE.Attrs().Name)
+	}
+
+	slog.DebugContext(ctx, "veth is up", "vrf", name)
 	return vethHost, vethPE, nil
 }
 

@@ -28,7 +28,7 @@ func SetupVNI(ctx context.Context, params VNIParams) error {
 		return fmt.Errorf("SetupVNI: Failed to get network namespace %s", params.TargetNS)
 	}
 
-	hostVeth, peVeth, err := setupVeth(ctx, params.VRF)
+	hostVeth, peVeth, err := setupVeth(ctx, params.VRF, ns)
 	if err != nil {
 		return err
 	}
@@ -41,12 +41,6 @@ func SetupVNI(ctx context.Context, params VNIParams) error {
 	if err != nil {
 		return fmt.Errorf("could not set link up for host leg %s: %v", hostVeth, err)
 	}
-
-	err = netlink.LinkSetNsFd(peVeth, int(ns))
-	if err != nil {
-		return fmt.Errorf("setupUnderlay: Failed to move %s to network namespace %s: %w", peVeth.Attrs().Name, ns.String(), err)
-	}
-	slog.DebugContext(ctx, "pe leg moved to ns", "pe veth", peVeth.Attrs().Name)
 
 	err = inNamespace(ns, func() error {
 		err = assignIPToInterface(peVeth, params.VethNSIP)

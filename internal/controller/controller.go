@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
@@ -36,13 +37,14 @@ import (
 // PERouterReconciler reconciles a Underlay object
 type PERouterReconciler struct {
 	client.Client
-	Scheme     *runtime.Scheme
-	MyNode     string
-	FRRConfig  string
-	ReloadPort int
-	PodRuntime *pods.Runtime
-	LogLevel   string
-	Logger     *slog.Logger
+	Scheme      *runtime.Scheme
+	MyNode      string
+	MyNamespace string
+	FRRConfig   string
+	ReloadPort  int
+	PodRuntime  *pods.Runtime
+	LogLevel    string
+	Logger      *slog.Logger
 }
 
 // +kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch
@@ -80,7 +82,12 @@ func (r *PERouterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		slog.Error("failed to fetch router pod", "node", r.MyNode, "error", err)
 		return ctrl.Result{}, err
 	}
-	logger.Info("router pod", "Pod", routerPod.Name)
+	routerPodIsReady := PodIsReady(routerPod)
+	logger.Info("router pod", "Pod", routerPod.Name, "is ready", routerPodIsReady)
+
+	if !routerPodIsReady {
+		return ctrl.Result{}, nil
+	}
 
 	var underlays v1alpha1.UnderlayList
 	if err := r.Client.List(ctx, &underlays); err != nil {
@@ -124,18 +131,41 @@ func (r *PERouterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *PERouterReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	p := predicate.NewPredicateFuncs(func(object client.Object) bool {
+	filterNonRouterPods := predicate.NewPredicateFuncs(func(object client.Object) bool {
 		switch o := object.(type) {
 		case *v1.Pod:
 			if o.Spec.NodeName != r.MyNode {
 				return false
 			}
-			return true
+			if o.Namespace != r.MyNamespace {
+				return false
+			}
+
+			if o.Labels != nil && o.Labels["app"] == "router" { // interested only in the router pod
+				return true
+			}
+			return false
 		default:
 			return true
 		}
 
 	})
+
+	filterUpdates := predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			switch o := e.ObjectNew.(type) {
+			case *v1.Node:
+				return false
+			case *v1.Pod: // handle only status updates
+				old := e.ObjectOld.(*v1.Pod)
+				if PodIsReady(old) != PodIsReady(o) {
+					return true
+				}
+				return false
+			}
+			return true
+		},
+	}
 
 	if err := setPodNodeNameIndex(mgr); err != nil {
 		return err
@@ -144,8 +174,9 @@ func (r *PERouterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&periov1alpha1.Underlay{}).
 		Watches(&v1.Pod{}, &handler.EnqueueRequestForObject{}).
 		Watches(&periov1alpha1.VNI{}, &handler.EnqueueRequestForObject{}).
-		WithEventFilter(p).
-		Named("underlay").
+		WithEventFilter(filterNonRouterPods).
+		WithEventFilter(filterUpdates).
+		Named("routercontroller").
 		Complete(r)
 }
 
@@ -157,7 +188,7 @@ func setPodNodeNameIndex(mgr ctrl.Manager) error {
 			return nil
 		}
 		if !ok {
-			slog.Error("podindexer", "error", "received object that is not epslice", "object", rawObj.GetObjectKind().GroupVersionKind().Kind)
+			slog.Error("podindexer", "error", "received object that is not pod", "object", rawObj.GetObjectKind().GroupVersionKind().Kind)
 			return nil
 		}
 		if pod.Spec.NodeName != "" {
@@ -168,4 +199,24 @@ func setPodNodeNameIndex(mgr ctrl.Manager) error {
 		return fmt.Errorf("failed to set node indexer %w", err)
 	}
 	return nil
+}
+
+// PodIsReady returns the given pod's PodReady and ContainersReady condition.
+func PodIsReady(p *v1.Pod) bool {
+	return podConditionStatus(p, v1.PodReady) == v1.ConditionTrue && podConditionStatus(p, v1.ContainersReady) == v1.ConditionTrue
+}
+
+// podConditionStatus returns the status of the condition for a given pod.
+func podConditionStatus(p *v1.Pod, condition v1.PodConditionType) v1.ConditionStatus {
+	if p == nil {
+		return v1.ConditionUnknown
+	}
+
+	for _, c := range p.Status.Conditions {
+		if c.Type == condition {
+			return c.Status
+		}
+	}
+
+	return v1.ConditionUnknown
 }
