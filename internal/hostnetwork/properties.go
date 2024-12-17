@@ -105,24 +105,36 @@ func moveNicToNamespace(ctx context.Context, nic string, ns netns.NsHandle) erro
 		return fmt.Errorf("setupUnderlay: Failed to get addresses for nic %s: %w", link.Attrs().Name, err)
 	}
 
+	slog.DebugContext(ctx, "addresses before moving", "addresses", addresses)
 	err = netlink.LinkSetNsFd(link, int(ns))
 	if err != nil {
 		return fmt.Errorf("setupUnderlay: Failed to move %s to network namespace %s: %w", link.Attrs().Name, ns.String(), err)
 	}
-	inNamespace(ns, func() error {
-		err := netlink.LinkSetUp(link)
+	if err := inNamespace(ns, func() error {
+		nsLink, err := netlink.LinkByName(nic)
 		if err != nil {
-			return fmt.Errorf("setupUnderlay: Failed to set %s up in network namespace %s: %w", link.Attrs().Name, ns.String(), err)
+			return fmt.Errorf("setupUnderlay: Failed to get link by name %s up in network namespace %s: %w", nic, ns.String(), err)
+		}
+		err = netlink.LinkSetUp(nsLink)
+		if err != nil {
+			return fmt.Errorf("setupUnderlay: Failed to set %s up in network namespace %s: %w", nsLink.Attrs().Name, ns.String(), err)
 		}
 
+		slog.DebugContext(ctx, "restoring addresses in namespace", "addresses", addresses)
 		for _, a := range addresses {
-			err := netlink.AddrAdd(link, &a)
+			slog.DebugContext(ctx, "restoring address in namespace", "address", a, "flags", a.Flags)
+			IFA_F_NOPREFIXROUTE := 0x200 // remove no prefix route
+			a.Flags &= ^IFA_F_NOPREFIXROUTE
+			slog.DebugContext(ctx, "restoring address in namespace after no prefix", "address", a, "flags", a.Flags)
+			err := netlink.AddrAdd(nsLink, &a)
 			if err != nil {
-				return fmt.Errorf("moveNicToNamespace: Failed to add address %s to %s", a, link)
+				return fmt.Errorf("moveNicToNamespace: Failed to add address %s to %s", a, nsLink)
 			}
 		}
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
 	return nil
 }
 
