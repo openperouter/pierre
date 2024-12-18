@@ -42,3 +42,6 @@ mess with cidr / ip vtep ip
 generate different mac addresses for bridges
 
 same ip for all veth legs on the host
+
+redistribute connected as option in each vni?
+distroless image
