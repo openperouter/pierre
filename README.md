@@ -1,100 +1,152 @@
-# openperouter
-// TODO(user): Add simple overview of use/purpose
+# Open PE Router
+
+Open PE router is (without too much imagination) an open implementation of a PE router, intended to terminate multiple VPN protocols on Kubernetes nodes, exposing a BGP interface
+with the rest of the host network.
+
+This project is in the early stage of prototypation. Use carefully!
+
+
+<img src="drawings/logo_text.png" width=250  />
+
 
 ## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
+
+After OpenPE is configured and deployed on a cluster, it can interact with any BGP speaking component of the cluster, including FRR-K8s, MetalLB and others.
+
+The provided abstraction is as if a physical Provider Edge Router was moved inside the node:
+
+<img src="drawings/cluster_pe.png" width=800  />
+
+which becomes
+
+<img src="drawings/cluster_openpe.png" width=800  />
+
+The current architecture of OpenPE is as follows:
+
+<img src="drawings/router-controller-pods.png" width=800  />
+
+
+### The Router Daemonset
+
+The router daemonset is the component in charge of implementing the various routing protocols (thanks to FRRRouting!) and to translate the routes received via EVPN to BGP routes:
+
+- A veth leg for each VNI / logical VRF connects the router pod to the host
+- FRR is configured to listen to incoming BGP session from each veth. All the routes coming via that session are mapped to type 5 EVPN routes sent via EVPN. Also, all the type 5 routes received via EVPN
+are advertised via BGP through that session
+- One host interface connected to the external router is moved into the namespace, to implement the underlay network
+
+### The Controller Daemonset
+
+The controller is the component in charge of:
+
+- Generating the FRR configuration corresponding to the provided API
+- Sending a signal to the router to reload the provided configuration
+- Configuring the router's network namespace. This includes:
+    - Moving the interface used for the underlay network
+    - Creating the veth legs corresponding to each VNI
+    - Creating the VXLan, VRF and linux bridge interfaces required by FRR to implement EVPN
 
 ## Getting Started
 
-### Prerequisites
-- go version v1.22.0+
-- docker version 17.03+.
-- kubectl version v1.11.3+.
-- Access to a Kubernetes v1.11.3+ cluster.
-
 ### To Deploy on the cluster
-**Build and push your image to the location specified by `IMG`:**
 
-```sh
-make docker-build docker-push IMG=<some-registry>/openperouter:tag
+**Apply the all-in-one manifests**
+
+`kubectl apply -f https://raw.githubusercontent.com/openperouter/openperouter/refs/heads/main/config/all-in-one/openpe.yaml`
+
+or the crio variant (if your distribution uses crio)
+
+`https://raw.githubusercontent.com/openperouter/openperouter/refs/heads/main/config/all-in-one/crio.yaml`
+
+Note that running on Openshift will require extra scc to be added. 
+
+```bash
+oc adm policy add-scc-to-user privileged -n openperouter-system -z openperouter-controller
+oc adm policy add-scc-to-user privileged -n openperouter-system -z openperouter-perouter
 ```
 
-**NOTE:** This image ought to be published in the personal registry you specified.
-And it is required to have access to pull the image from the working environment.
-Make sure you have the proper permission to the registry if the above commands don’t work.
+Right after the deployment.
 
-**Install the CRDs into the cluster:**
+### Configuring it
 
-```sh
-make install
+More documentation will be provided, but for now it's important to mention that the configuration is split in two:
+
+#### Configuring the underlay via the underlay CRD
+
+```yaml
+apiVersion: per.io.openperouter.github.io/v1alpha1
+kind: Underlay
+metadata:
+  name: underlay
+  namespace: openperouter-system
+spec:
+  asn: 64514
+  vtepcidr:  100.65.0.0/24
+  nic: eth1
+  neighbors:
+    - asn: 64512
+      address: 192.168.11.2 
 ```
 
-**Deploy the Manager to the cluster with the image specified by `IMG`:**
+Which includes:
 
-```sh
-make deploy IMG=<some-registry>/openperouter:tag
+- configuring the session with the external router
+- configuring the interface connected to such router, which will be moved inside the pod (can be a vlan!)
+- configuring the cidr of the ips to be assigned to the vteps across the nodes
+
+#### Configuring each VNI
+
+```yaml
+apiVersion: per.io.openperouter.github.io/v1alpha1
+kind: VNI
+metadata:
+  name: vni-sample
+  namespace: openperouter-system
+spec:
+  asn: 64514
+  vrf: red
+  vni: 100
+  vxlanport: 4789
+  localcidr: 192.169.10.0/24
+  localNeighbor:
+    asn: 64515
+    address: 192.169.10.0
+    holdTime: 180s
+    keepaliveTime: 60s
 ```
 
-> **NOTE**: If you encounter RBAC errors, you may need to grant yourself cluster-admin
-privileges or be logged in as admin.
+A single vni instance configures:
 
-**Create instances of your solution**
-You can apply the samples (examples) from the config/sample:
+- the vrf name inside the pe router container (TODO: can be autogenerated)
+- the vni to be used and associated to that logical vrf
+- the cidr to be used for the veth pairs
+- the details of the local session (over the veth leg extended to the node)
 
-```sh
-kubectl apply -k config/samples/
+
+## Note
+
+Currently, each vlan is going to get a different IP, and to configure the cloud native component to interact with the speaker, one must know what ip is assigned to each veth (on each node).
+This has clearly room for improvement and it will be addressed. This is a poc after all!
+
+## Seeing it in action
+
+Once the Open PE is configured, any cloud native BGP speaker can be configured, assuming that the details of the sessions are known. Here is for example a MetalLB `BGPPeer` configuration that can
+be used for that:
+
+```yaml
+apiVersion: metallb.io/v1beta2
+kind: BGPPeer
+metadata:
+  name: red
+  namespace: metallb-system
+spec:
+  myASN: 64515
+  peerASN: 64514
+  peerAddress: 192.169.10.1
 ```
 
->**NOTE**: Ensure that the samples has default values to test it out.
-
-### To Uninstall
-**Delete the instances (CRs) from the cluster:**
-
-```sh
-kubectl delete -k config/samples/
-```
-
-**Delete the APIs(CRDs) from the cluster:**
-
-```sh
-make uninstall
-```
-
-**UnDeploy the controller from the cluster:**
-
-```sh
-make undeploy
-```
-
-## Project Distribution
-
-Following are the steps to build the installer and distribute this project to users.
-
-1. Build the installer for the image built and published in the registry:
-
-```sh
-make build-installer IMG=<some-registry>/openperouter:tag
-```
-
-NOTE: The makefile target mentioned above generates an 'install.yaml'
-file in the dist directory. This file contains all the resources built
-with Kustomize, which are necessary to install this project without
-its dependencies.
-
-2. Using the installer
-
-Users can just run kubectl apply -f <URL for YAML BUNDLE> to install the project, i.e.:
-
-```sh
-kubectl apply -f https://raw.githubusercontent.com/<org>/openperouter/<tag or branch>/dist/install.yaml
-```
-
-## Contributing
-// TODO(user): Add detailed information on how you would like others to contribute to this project
-
-**NOTE:** Run `make help` for more information on all potential `make` targets
-
-More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
+By using that, all the services announced by MetalLB as BGP routes will be automatically translated and spread across the fabric as EVPN type 5 routes. At the same type, the VXLan encapsulated traffic
+targeting the MetalLB services will be terminated on the OpenPE router pod's namespace and then redirected to the host namespace as plain traffic.
 
 ## License
 
@@ -111,4 +163,3 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-
