@@ -18,7 +18,6 @@ ipam: current mechanism is fragile
 manual assign: a per VRF per node CRD. Also, vtep per node manual
 
 
-define loglevel and propagate it to the frr package
 add context to the reloaedr logic
 
 bgp passwords
@@ -34,18 +33,12 @@ idempotent configurations
 
 conversion unit tests
 
-idempotent: interface already in namespace
-
 in e2e: what happens if the pod dies when eth1 is inside of it? It gets deleted. Solution: recreate the veth
 todo: when moving nic in namespace, we check only if it exists but we don't check if it has the right ip. Save it so we can reuse
 
 
-check if the router pod status is ready before making the call
-
-I am getting an event for a pod on the default ns!
-
 mess with cidr / ip vtep ip
 
-if underlay changes, just kill the router pod
-
 generate different mac addresses for bridges
+
+same ip for all veth legs on the host
