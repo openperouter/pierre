@@ -1,6 +1,9 @@
 package ipam
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
 func TestIPam(t *testing.T) {
 	tests := []struct {
@@ -51,4 +54,26 @@ func TestIPam(t *testing.T) {
 
 		})
 	}
+}
+
+func TestVethIPs(t *testing.T) {
+	tests := []struct {
+		name         string
+		pool         string
+		index        int
+		expectedHost string
+		expectedPE   string
+		shouldFail   bool
+	}{
+		{
+			"first",
+			"192.168.1.0/24",
+			0,
+			"192.168.1.0/32",
+			"192.168.1.1/32",
+			false,
+		},
+	}
+	fmt.Println(tests)
+
 }
