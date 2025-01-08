@@ -46,7 +46,8 @@ func TestVNI(t *testing.T) {
 			t.Fatalf("failed to setup vni: %v", err)
 		}
 
-		time.Sleep(5 * time.Second)
+		fmt.Println("ZZZZ")
+		time.Sleep(4 * time.Second)
 		validateHostLeg(t, params)
 
 		_ = inNamespace(testNS, func() error {

@@ -83,6 +83,7 @@ func vniToFRR(vni v1alpha1.VNI, nodeIndex int) (frr.VNIConfig, error) {
 		VNI:           int(vni.Spec.VNI),
 		VRF:           vni.Spec.VRF,
 		LocalNeighbor: vniNeighbor,
+		ToAdvertise:   []string{vniNeighbor.Addr + "/32"}, // TODO Hack
 	}
 	return res, nil
 }

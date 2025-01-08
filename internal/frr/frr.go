@@ -13,9 +13,8 @@ import (
 type ConfigUpdater func(context.Context, string) error
 
 type FRR struct {
-	reloadConfig chan reloadEvent
-	configFile   string
-	logLevel     string
+	configFile string
+	logLevel   string
 	sync.Mutex
 }
 

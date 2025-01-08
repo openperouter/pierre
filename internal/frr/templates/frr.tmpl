@@ -63,7 +63,9 @@ router bgp {{ .ASN }} vrf {{ .VRF }}
   neighbor {{ .LocalNeighbor.Addr }} remote-as {{ .LocalNeighbor.ASN }}
 
   address-family ipv4 unicast
-    redistribute connected
+  {{- range .ToAdvertise }}
+    network {{ . }}
+  {{- end }}
     neighbor {{ .LocalNeighbor.Addr }} activate
     neighbor {{ .LocalNeighbor.Addr }} route-map allowall in
     neighbor {{ .LocalNeighbor.Addr }} route-map allowall out

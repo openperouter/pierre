@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net"
 	"strings"
 
 	"github.com/vishvananda/netlink"
@@ -42,7 +43,7 @@ func SetupVNI(ctx context.Context, params VNIParams) error {
 		return fmt.Errorf("could not set link up for host leg %s: %v", hostVeth, err)
 	}
 
-	err = inNamespace(ns, func() error {
+	if err := inNamespace(ns, func() error {
 		err = assignIPToInterface(peVeth, params.VethNSIP)
 		if err != nil {
 			return err
@@ -74,8 +75,24 @@ func SetupVNI(ctx context.Context, params VNIParams) error {
 		if err != nil {
 			return err
 		}
+		_, dst, err := net.ParseCIDR(params.VethHostIP)
+		if err != nil {
+			return fmt.Errorf("failed to parse veth host ip %s: %w", params.VethHostIP, err)
+		}
+
+		slog.DebugContext(ctx, "setting up route to host")
+		route := &netlink.Route{
+			Table:     int(vrf.Table),
+			Dst:       dst,
+			LinkIndex: peVeth.Attrs().Index,
+		}
+		if err := netlink.RouteAdd(route); err != nil {
+			return fmt.Errorf("failed to add route %v: %w", *route, err)
+		}
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
 
 	return nil
 }
