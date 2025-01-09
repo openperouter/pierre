@@ -46,7 +46,6 @@ func TestVNI(t *testing.T) {
 			t.Fatalf("failed to setup vni: %v", err)
 		}
 
-		fmt.Println("ZZZZ")
 		time.Sleep(4 * time.Second)
 		validateHostLeg(t, params)
 
@@ -247,6 +246,13 @@ func validateNS(t *testing.T, params VNIParams) {
 	}
 	if !hasIP {
 		t.Fatalf("pe leg doesn't have ip %s", params.VethNSIP)
+	}
+	isPresent, err := checkRouteIsPresent(params.VethHostIP, vrf, peLegLink)
+	if err != nil {
+		t.Fatalf("failed to check if route is present: %v", err)
+	}
+	if !isPresent {
+		t.Fatalf("route is not added")
 	}
 }
 

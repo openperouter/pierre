@@ -75,19 +75,10 @@ func SetupVNI(ctx context.Context, params VNIParams) error {
 		if err != nil {
 			return err
 		}
-		_, dst, err := net.ParseCIDR(params.VethHostIP)
-		if err != nil {
-			return fmt.Errorf("failed to parse veth host ip %s: %w", params.VethHostIP, err)
-		}
 
 		slog.DebugContext(ctx, "setting up route to host")
-		route := &netlink.Route{
-			Table:     int(vrf.Table),
-			Dst:       dst,
-			LinkIndex: peVeth.Attrs().Index,
-		}
-		if err := netlink.RouteAdd(route); err != nil {
-			return fmt.Errorf("failed to add route %v: %w", *route, err)
+		if err := addRouteToHost(vrf, params.VethHostIP, peVeth); err != nil {
+			return err
 		}
 		return nil
 	}); err != nil {
@@ -165,4 +156,66 @@ func clearLinks(linkType string, vnis map[int]bool, links []netlink.Link, vniFro
 	}
 
 	return nil
+}
+
+func addRouteToHost(vrf *netlink.Vrf, dst string, peInterface netlink.Link) error {
+	isPresent, err := checkRouteIsPresent(dst, vrf, peInterface)
+	if err != nil {
+		return err
+	}
+	if isPresent {
+		return nil
+	}
+	_, dstCIDR, err := net.ParseCIDR(dst)
+	if err != nil {
+		return fmt.Errorf("failed to parse veth host ip %s: %w", dst, err)
+	}
+
+	route := &netlink.Route{
+		Table:     int(vrf.Table),
+		Dst:       dstCIDR,
+		LinkIndex: peInterface.Attrs().Index,
+	}
+	if err := netlink.RouteAdd(route); err != nil {
+		return fmt.Errorf("failed to add route %v: %w", *route, err)
+	}
+	return nil
+}
+
+func checkRouteIsPresent(dst string, vrf *netlink.Vrf, peInterface netlink.Link) (bool, error) {
+	_, dstCIDR, err := net.ParseCIDR(dst)
+	if err != nil {
+		return false, fmt.Errorf("failed to parse veth host ip %s: %v", dst, err)
+	}
+
+	toCheck := &netlink.Route{
+		Table:     int(vrf.Table),
+		Dst:       dstCIDR,
+		LinkIndex: peInterface.Attrs().Index,
+	}
+
+	routes, err := netlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
+		Dst:   dstCIDR,
+		Table: int(vrf.Table),
+	}, netlink.RT_FILTER_DST|netlink.RT_FILTER_TABLE)
+	if err != nil {
+		return false, fmt.Errorf("failed to list routes: %w", err)
+	}
+
+	for _, r := range routes {
+		if !r.Dst.IP.Equal(toCheck.Dst.IP) {
+			continue
+		}
+		if r.Dst.Mask.String() != toCheck.Dst.Mask.String() {
+			continue
+		}
+		if r.LinkIndex != toCheck.LinkIndex {
+			continue
+		}
+		if r.Table != toCheck.Table {
+			continue
+		}
+		return true, nil
+	}
+	return false, nil
 }
