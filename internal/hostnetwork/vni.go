@@ -159,44 +159,46 @@ func clearLinks(linkType string, vnis map[int]bool, links []netlink.Link, vniFro
 }
 
 func addRouteToHost(vrf *netlink.Vrf, dst string, peInterface netlink.Link) error {
-	isPresent, err := checkRouteIsPresent(dst, vrf, peInterface)
+	route, err := hostIPToRoute(vrf, dst, peInterface)
+	if err != nil {
+		return err
+	}
+	isPresent, err := checkRouteIsPresent(route)
 	if err != nil {
 		return err
 	}
 	if isPresent {
 		return nil
 	}
-	_, dstCIDR, err := net.ParseCIDR(dst)
-	if err != nil {
-		return fmt.Errorf("failed to parse veth host ip %s: %w", dst, err)
-	}
 
-	route := &netlink.Route{
-		Table:     int(vrf.Table),
-		Dst:       dstCIDR,
-		LinkIndex: peInterface.Attrs().Index,
-	}
 	if err := netlink.RouteAdd(route); err != nil {
 		return fmt.Errorf("failed to add route %v: %w", *route, err)
 	}
 	return nil
 }
 
-func checkRouteIsPresent(dst string, vrf *netlink.Vrf, peInterface netlink.Link) (bool, error) {
-	_, dstCIDR, err := net.ParseCIDR(dst)
+func hostIPToRoute(vrf *netlink.Vrf, dst string, peInterface netlink.Link) (*netlink.Route, error) {
+	ip, dstCIDR, err := net.ParseCIDR(dst)
 	if err != nil {
-		return false, fmt.Errorf("failed to parse veth host ip %s: %v", dst, err)
+		return nil, fmt.Errorf("failed to parse veth host ip %s: %w", dst, err)
 	}
-
-	toCheck := &netlink.Route{
-		Table:     int(vrf.Table),
-		Dst:       dstCIDR,
+	_, maskSize := dstCIDR.Mask.Size()
+	route := &netlink.Route{
+		Table: int(vrf.Table),
+		Dst: &net.IPNet{
+			IP:   ip,
+			Mask: net.CIDRMask(maskSize, maskSize),
+		},
 		LinkIndex: peInterface.Attrs().Index,
 	}
+	return route, nil
 
+}
+
+func checkRouteIsPresent(toCheck *netlink.Route) (bool, error) {
 	routes, err := netlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
-		Dst:   dstCIDR,
-		Table: int(vrf.Table),
+		Dst:   toCheck.Dst,
+		Table: int(toCheck.Table),
 	}, netlink.RT_FILTER_DST|netlink.RT_FILTER_TABLE)
 	if err != nil {
 		return false, fmt.Errorf("failed to list routes: %w", err)

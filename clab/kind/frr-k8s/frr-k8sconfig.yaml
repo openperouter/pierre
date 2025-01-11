@@ -8,7 +8,7 @@ spec:
     routers:
     - asn: 64515
       neighbors:
-      - address: 192.169.10.1
+      - address: 192.169.10.0
         asn: 64514
         toReceive:
           allowed:

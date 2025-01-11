@@ -13,11 +13,16 @@ type Veths struct {
 }
 
 func VethIPs(pool string, index int) (Veths, error) {
-	peSide, err := cidrElem(pool, 0, 31) // pe side is always the same
+	_, cidr, err := net.ParseCIDR(pool)
+	if err != nil {
+		return Veths{}, fmt.Errorf("failed to parse pool %s: %w", pool, err)
+	}
+	peSide, err := cidrElem(pool, 32, 0) // pe side is always the same
 	if err != nil {
 		return Veths{}, err
 	}
-	hostSide, err := cidrElem(pool, index+1, 24)
+	ones, _ := cidr.Mask.Size()
+	hostSide, err := cidrElem(pool, ones, index+1)
 	if err != nil {
 		return Veths{}, err
 	}

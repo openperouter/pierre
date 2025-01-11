@@ -247,7 +247,12 @@ func validateNS(t *testing.T, params VNIParams) {
 	if !hasIP {
 		t.Fatalf("pe leg doesn't have ip %s", params.VethNSIP)
 	}
-	isPresent, err := checkRouteIsPresent(params.VethHostIP, vrf, peLegLink)
+
+	route, err := hostIPToRoute(vrf, params.VethHostIP, peLegLink)
+	if err != nil {
+		t.Fatalf("failed to convert host ip to route: %v", err)
+	}
+	isPresent, err := checkRouteIsPresent(route)
 	if err != nil {
 		t.Fatalf("failed to check if route is present: %v", err)
 	}
@@ -302,4 +307,36 @@ func setupLoopback(t *testing.T, ns netns.NsHandle) {
 		}
 		return nil
 	})
+}
+
+func TestIPToRoute(t *testing.T) {
+	vrf := &netlink.Vrf{
+		LinkAttrs: netlink.LinkAttrs{
+			Index: 12,
+		},
+		Table: 37,
+	}
+	peInterface := netlink.Dummy{
+		LinkAttrs: netlink.LinkAttrs{
+			Index: 12,
+		},
+	}
+
+	tests := []struct {
+		name        string
+		dst         string
+		expectedDst string
+	}{
+		{
+			name:        "/24 cidr",
+			dst:         "192.168.10.3/24",
+			expectedDst: "192.168.10.3/32",
+		},
+	}
+	for _, tc := range tests {
+		route, err := hostIPToRoute(vrf, tc.dst, &peInterface)
+		if err != nil {
+			t.Fatalf("unexpected error %v", err)
+		}
+	}
 }
