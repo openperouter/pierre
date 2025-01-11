@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"strings"
 	"testing"
@@ -332,11 +333,29 @@ func TestIPToRoute(t *testing.T) {
 			dst:         "192.168.10.3/24",
 			expectedDst: "192.168.10.3/32",
 		},
+		{
+			name:        "/28 cidr",
+			dst:         "192.168.10.3/28",
+			expectedDst: "192.168.10.3/32",
+		},
 	}
 	for _, tc := range tests {
 		route, err := hostIPToRoute(vrf, tc.dst, &peInterface)
 		if err != nil {
 			t.Fatalf("unexpected error %v", err)
+		}
+		_, desiredDest, err := net.ParseCIDR(tc.expectedDst)
+		if err != nil {
+			t.Fatalf("failed to parse expected dst")
+		}
+		if desiredDest.String() != route.Dst.String() {
+			t.Fatalf("expecting %s got %s", desiredDest, route.Dst)
+		}
+		if route.Table != int(vrf.Table) {
+			t.Fatalf("expecting vrf table %d, got %d", vrf.Table, route.Table)
+		}
+		if route.LinkIndex != peInterface.Index {
+			t.Fatalf("expecting pe interface index %d, got %d", peInterface.Index, route.LinkIndex)
 		}
 	}
 }
