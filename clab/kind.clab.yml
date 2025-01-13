@@ -33,6 +33,9 @@ topology:
         - host1/setup.sh:/setup.sh
       cmd: sleep INF
 
+    leaf2-switch:
+      kind: bridge
+
     pe-kind:
       kind: k8s-kind
 
@@ -41,8 +44,15 @@ topology:
       binds:
         - kind/setup.sh:/setup.sh
 
+    pe-kind-worker:
+      kind: ext-container
+      binds:
+        - kind/setupworker.sh:/setupworker.sh
+
   links:
     - endpoints: ["leaf1:eth1", "spine:eth1"]
     - endpoints: ["leaf2:eth1", "spine:eth2"]
     - endpoints: ["HOST1:eth1", "leaf1:eth2"]
-    - endpoints: ["pe-kind-control-plane:eth1", "leaf2:eth2"]
+    - endpoints: ["leaf2:eth2", "leaf2-switch:eth1"]
+    - endpoints: ["pe-kind-control-plane:eth1", "leaf2-switch:eth2"]
+    - endpoints: ["pe-kind-control-worker:eth1", "leaf2-switch:eth3"]
