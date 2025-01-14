@@ -1,6 +1,7 @@
 package frrconfig
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -25,7 +26,7 @@ func TestUpdaterForAddress(t *testing.T) {
 
 	updater := UpdaterForAddress(server.URL[7:], tmpfile.Name()) // Remove "http://"
 
-	err = updater("test config")
+	err = updater(context.Background(), "test config")
 	if err != nil {
 		t.Errorf("expected no error, got %v", err)
 	}

@@ -76,10 +76,12 @@ func SetupVNI(ctx context.Context, params VNIParams) error {
 			return err
 		}
 
-		slog.DebugContext(ctx, "setting up route to host")
-		if err := addRouteToHost(vrf, params.VethHostIP, peVeth); err != nil {
-			return err
-		}
+		/*
+			slog.DebugContext(ctx, "setting up route to host")
+			if err := addRouteToHost(vrf, params.VethHostIP, peVeth); err != nil {
+				return err
+			}
+		*/
 		return nil
 	}); err != nil {
 		return err

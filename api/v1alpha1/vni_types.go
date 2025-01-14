@@ -25,12 +25,12 @@ import (
 
 // VNISpec defines the desired state of VNI.
 type VNISpec struct {
-	ASN           uint32   `json:"asn,omitempty"`
-	VRF           string   `json:"vrf,omitempty"`
-	LocalNeighbor Neighbor `json:"localNeighbor,omitempty"`
-	VNI           uint32   `json:"vni,omitempty"`
-	LocalCIDR     string   `json:"localcidr,omitempty"`
-	VXLanPort     uint32   `json:"vxlanport,omitempty"`
+	ASN       uint32 `json:"asn,omitempty"`
+	VRF       string `json:"vrf,omitempty"`
+	LocalASN  uint32 `json:"localasn,omitempty"`
+	VNI       uint32 `json:"vni,omitempty"`
+	LocalCIDR string `json:"localcidr,omitempty"`
+	VXLanPort uint32 `json:"vxlanport,omitempty"`
 }
 
 // VNIStatus defines the observed state of VNI.

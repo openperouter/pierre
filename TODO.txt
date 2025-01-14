@@ -47,3 +47,5 @@ redistribute connected as option in each vni?
 distroless image
 
 get rid of all the + "/32" around the codebase and better define cidrs vs addresses
+
+We are advertising the veth host ip to the host itself

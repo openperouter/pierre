@@ -17,11 +17,11 @@ func VethIPs(pool string, index int) (Veths, error) {
 	if err != nil {
 		return Veths{}, fmt.Errorf("failed to parse pool %s: %w", pool, err)
 	}
-	peSide, err := cidrElem(pool, 32, 0) // pe side is always the same
+	ones, _ := cidr.Mask.Size()
+	peSide, err := cidrElem(pool, ones, 0)
 	if err != nil {
 		return Veths{}, err
 	}
-	ones, _ := cidr.Mask.Size()
 	hostSide, err := cidrElem(pool, ones, index+1)
 	if err != nil {
 		return Veths{}, err
@@ -29,7 +29,7 @@ func VethIPs(pool string, index int) (Veths, error) {
 	return Veths{HostSide: *hostSide, ContainerSide: *peSide}, nil
 }
 
-func VETPIp(pool string, index int) (string, error) {
+func VTEPIp(pool string, index int) (string, error) {
 	ips, err := sliceCIDR(pool, index, 1)
 	if err != nil {
 		return "", err
