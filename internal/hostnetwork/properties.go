@@ -127,8 +127,8 @@ func moveNicToNamespace(ctx context.Context, nic string, ns netns.NsHandle) erro
 			a.Flags &= ^IFA_F_NOPREFIXROUTE
 			slog.DebugContext(ctx, "restoring address in namespace after no prefix", "address", a, "flags", a.Flags)
 			err := netlink.AddrAdd(nsLink, &a)
-			if err != nil {
-				return fmt.Errorf("moveNicToNamespace: Failed to add address %s to %s", a, nsLink)
+			if err != nil && !os.IsExist(err) {
+				return fmt.Errorf("moveNicToNamespace: Failed to add address %s to %s: %w", a, nsLink.Attrs().Name, err)
 			}
 		}
 		return nil

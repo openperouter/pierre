@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"strings"
 	"testing"
@@ -46,7 +47,7 @@ func TestVNI(t *testing.T) {
 			t.Fatalf("failed to setup vni: %v", err)
 		}
 
-		time.Sleep(5 * time.Second)
+		time.Sleep(4 * time.Second)
 		validateHostLeg(t, params)
 
 		_ = inNamespace(testNS, func() error {
@@ -247,6 +248,18 @@ func validateNS(t *testing.T, params VNIParams) {
 	if !hasIP {
 		t.Fatalf("pe leg doesn't have ip %s", params.VethNSIP)
 	}
+
+	route, err := hostIPToRoute(vrf, params.VethHostIP, peLegLink)
+	if err != nil {
+		t.Fatalf("failed to convert host ip to route: %v", err)
+	}
+	isPresent, err := checkRouteIsPresent(route)
+	if err != nil {
+		t.Fatalf("failed to check if route is present: %v", err)
+	}
+	if !isPresent {
+		t.Fatalf("route is not added")
+	}
 }
 
 func checkLinkdeleted(t *testing.T, name string) {
@@ -295,4 +308,54 @@ func setupLoopback(t *testing.T, ns netns.NsHandle) {
 		}
 		return nil
 	})
+}
+
+func TestIPToRoute(t *testing.T) {
+	vrf := &netlink.Vrf{
+		LinkAttrs: netlink.LinkAttrs{
+			Index: 12,
+		},
+		Table: 37,
+	}
+	peInterface := netlink.Dummy{
+		LinkAttrs: netlink.LinkAttrs{
+			Index: 12,
+		},
+	}
+
+	tests := []struct {
+		name        string
+		dst         string
+		expectedDst string
+	}{
+		{
+			name:        "/24 cidr",
+			dst:         "192.168.10.3/24",
+			expectedDst: "192.168.10.3/32",
+		},
+		{
+			name:        "/28 cidr",
+			dst:         "192.168.10.3/28",
+			expectedDst: "192.168.10.3/32",
+		},
+	}
+	for _, tc := range tests {
+		route, err := hostIPToRoute(vrf, tc.dst, &peInterface)
+		if err != nil {
+			t.Fatalf("unexpected error %v", err)
+		}
+		_, desiredDest, err := net.ParseCIDR(tc.expectedDst)
+		if err != nil {
+			t.Fatalf("failed to parse expected dst")
+		}
+		if desiredDest.String() != route.Dst.String() {
+			t.Fatalf("expecting %s got %s", desiredDest, route.Dst)
+		}
+		if route.Table != int(vrf.Table) {
+			t.Fatalf("expecting vrf table %d, got %d", vrf.Table, route.Table)
+		}
+		if route.LinkIndex != peInterface.Index {
+			t.Fatalf("expecting pe interface index %d, got %d", peInterface.Index, route.LinkIndex)
+		}
+	}
 }

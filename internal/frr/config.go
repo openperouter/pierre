@@ -15,8 +15,6 @@ import (
 )
 
 var (
-	configFileName      = "/etc/frr_reloader/frr.conf"
-	reloaderPidFileName = "/etc/frr_reloader/reloader.pid"
 	//go:embed templates/* templates/*
 	templates embed.FS
 )
@@ -28,11 +26,6 @@ type Config struct {
 	VNIs     []VNIConfig
 }
 
-type reloadEvent struct {
-	config *Config
-	useOld bool
-}
-
 type UnderlayConfig struct {
 	MyASN     uint32
 	VTEP      string
@@ -41,6 +34,7 @@ type UnderlayConfig struct {
 
 type VNIConfig struct {
 	ASN           uint32
+	ToAdvertise   []string
 	LocalNeighbor *NeighborConfig
 	VRF           string
 	VNI           int
@@ -72,7 +66,7 @@ type NeighborConfig struct {
 }
 
 func (n *NeighborConfig) ID() string {
-	return fmt.Sprintf("%s", n.Addr)
+	return n.Addr
 }
 
 // templateConfig uses the template library to template

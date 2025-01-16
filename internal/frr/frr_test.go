@@ -47,6 +47,9 @@ func TestBasic(t *testing.T) {
 					Addr:     "192.168.1.2",
 					IPFamily: ipfamily.IPv4,
 				},
+				ToAdvertise: []string{
+					"192.169.10.2/24",
+				},
 			},
 		},
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net"
 	"strings"
 
 	"github.com/vishvananda/netlink"
@@ -42,7 +43,7 @@ func SetupVNI(ctx context.Context, params VNIParams) error {
 		return fmt.Errorf("could not set link up for host leg %s: %v", hostVeth, err)
 	}
 
-	err = inNamespace(ns, func() error {
+	if err := inNamespace(ns, func() error {
 		err = assignIPToInterface(peVeth, params.VethNSIP)
 		if err != nil {
 			return err
@@ -74,8 +75,17 @@ func SetupVNI(ctx context.Context, params VNIParams) error {
 		if err != nil {
 			return err
 		}
+
+		/*
+			slog.DebugContext(ctx, "setting up route to host")
+			if err := addRouteToHost(vrf, params.VethHostIP, peVeth); err != nil {
+				return err
+			}
+		*/
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -148,4 +158,68 @@ func clearLinks(linkType string, vnis map[int]bool, links []netlink.Link, vniFro
 	}
 
 	return nil
+}
+
+func addRouteToHost(vrf *netlink.Vrf, dst string, peInterface netlink.Link) error {
+	route, err := hostIPToRoute(vrf, dst, peInterface)
+	if err != nil {
+		return err
+	}
+	isPresent, err := checkRouteIsPresent(route)
+	if err != nil {
+		return err
+	}
+	if isPresent {
+		return nil
+	}
+
+	if err := netlink.RouteAdd(route); err != nil {
+		return fmt.Errorf("failed to add route %v: %w", *route, err)
+	}
+	return nil
+}
+
+func hostIPToRoute(vrf *netlink.Vrf, dst string, peInterface netlink.Link) (*netlink.Route, error) {
+	ip, dstCIDR, err := net.ParseCIDR(dst)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse veth host ip %s: %w", dst, err)
+	}
+	_, maskSize := dstCIDR.Mask.Size()
+	route := &netlink.Route{
+		Table: int(vrf.Table),
+		Dst: &net.IPNet{
+			IP:   ip,
+			Mask: net.CIDRMask(maskSize, maskSize),
+		},
+		LinkIndex: peInterface.Attrs().Index,
+	}
+	return route, nil
+
+}
+
+func checkRouteIsPresent(toCheck *netlink.Route) (bool, error) {
+	routes, err := netlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
+		Dst:   toCheck.Dst,
+		Table: int(toCheck.Table),
+	}, netlink.RT_FILTER_DST|netlink.RT_FILTER_TABLE)
+	if err != nil {
+		return false, fmt.Errorf("failed to list routes: %w", err)
+	}
+
+	for _, r := range routes {
+		if !r.Dst.IP.Equal(toCheck.Dst.IP) {
+			continue
+		}
+		if r.Dst.Mask.String() != toCheck.Dst.Mask.String() {
+			continue
+		}
+		if r.LinkIndex != toCheck.LinkIndex {
+			continue
+		}
+		if r.Table != toCheck.Table {
+			continue
+		}
+		return true, nil
+	}
+	return false, nil
 }

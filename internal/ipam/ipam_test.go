@@ -1,6 +1,8 @@
 package ipam
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestIPam(t *testing.T) {
 	tests := []struct {
@@ -51,4 +53,50 @@ func TestIPam(t *testing.T) {
 
 		})
 	}
+}
+
+func TestVethIPs(t *testing.T) {
+	tests := []struct {
+		name         string
+		pool         string
+		index        int
+		expectedPE   string
+		expectedHost string
+		shouldFail   bool
+	}{
+		{
+			"first",
+			"192.168.1.0/24",
+			0,
+			"192.168.1.0/32",
+			"192.168.1.1/24",
+			false,
+		}, {
+			"second",
+			"192.168.1.0/24",
+			1,
+			"192.168.1.0/32",
+			"192.168.1.2/24",
+			false,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			res, err := VethIPs(tc.pool, tc.index)
+			if err != nil && !tc.shouldFail {
+				t.Fatalf("got error %v while should not fail", err)
+			}
+			if err == nil && tc.shouldFail {
+				t.Fatalf("was expecting error, didn't fail")
+			}
+
+			if res.HostSide.String() != tc.expectedHost {
+				t.Fatalf("was expecting %s, got %s on the host", tc.expectedHost, res.HostSide.String())
+			}
+			if res.ContainerSide.String() != tc.expectedPE {
+				t.Fatalf("was expecting %s, got %s on the container", tc.expectedPE, res.ContainerSide.String())
+			}
+		})
+	}
+
 }

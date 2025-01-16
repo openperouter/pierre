@@ -13,17 +13,23 @@ type Veths struct {
 }
 
 func VethIPs(pool string, index int) (Veths, error) {
-	ips, err := sliceCIDR(pool, index, 2)
+	_, cidr, err := net.ParseCIDR(pool)
+	if err != nil {
+		return Veths{}, fmt.Errorf("failed to parse pool %s: %w", pool, err)
+	}
+	ones, _ := cidr.Mask.Size()
+	peSide, err := cidrElem(pool, ones, 0)
 	if err != nil {
 		return Veths{}, err
 	}
-	if len(ips) != 2 {
-		return Veths{}, fmt.Errorf("veths, expecting 2 ip, got %v", ips)
+	hostSide, err := cidrElem(pool, ones, index+1)
+	if err != nil {
+		return Veths{}, err
 	}
-	return Veths{HostSide: ips[0], ContainerSide: ips[1]}, nil
+	return Veths{HostSide: *hostSide, ContainerSide: *peSide}, nil
 }
 
-func VETPIp(pool string, index int) (string, error) {
+func VTEPIp(pool string, index int) (string, error) {
 	ips, err := sliceCIDR(pool, index, 1)
 	if err != nil {
 		return "", err
@@ -32,6 +38,23 @@ func VETPIp(pool string, index int) (string, error) {
 		return "", fmt.Errorf("vtepIP, expecting 1 ip, got %v", ips)
 	}
 	return ips[0].IP.String() + "/32", nil
+}
+
+// cidrElem returns the ith elem of len size for the given cidr.
+func cidrElem(pool string, mask int, index int) (*net.IPNet, error) {
+	_, ipNet, err := net.ParseCIDR(pool)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse cidr %s: %w", pool, err)
+	}
+
+	ip, err := cidr.Host(ipNet, index)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get %d address from %s: %w", index, pool, err)
+	}
+	return &net.IPNet{
+		IP:   ip,
+		Mask: net.CIDRMask(mask, 32),
+	}, nil
 }
 
 // sliceCIDR returns the ith block of len size for the given cidr.

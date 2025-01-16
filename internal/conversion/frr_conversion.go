@@ -32,7 +32,7 @@ func APItoFRR(nodeIndex int, underlays []v1alpha1.Underlay, vnis []v1alpha1.VNI,
 	}
 
 	underlay := underlays[0]
-	vtepIP, err := ipam.VETPIp(underlay.Spec.VTEPCIDR, nodeIndex)
+	vtepIP, err := ipam.VTEPIp(underlay.Spec.VTEPCIDR, nodeIndex)
 	if err != nil {
 		return frr.Config{}, fmt.Errorf("failed to get vtep ip, cidr %s, nodeIntex %d", underlay.Spec.VTEPCIDR, nodeIndex)
 	}
@@ -72,17 +72,17 @@ func vniToFRR(vni v1alpha1.VNI, nodeIndex int) (frr.VNIConfig, error) {
 		return frr.VNIConfig{}, fmt.Errorf("failed to get veths ips for vni %s: %w", vni.Name, err)
 	}
 
-	vniNeighbor, err := neighborToFRR(vni.Spec.LocalNeighbor)
-	if err != nil {
-		return frr.VNIConfig{}, fmt.Errorf("failed to translate vni neighbor %s to frr", neighborName(vni.Spec.LocalNeighbor))
+	vniNeighbor := &frr.NeighborConfig{
+		Addr: veths.HostSide.IP.String(),
+		ASN:  vni.Spec.LocalASN,
 	}
-	vniNeighbor.Addr = veths.HostSide.IP.String()
 
 	res := frr.VNIConfig{
 		ASN:           vni.Spec.ASN,
 		VNI:           int(vni.Spec.VNI),
 		VRF:           vni.Spec.VRF,
 		LocalNeighbor: vniNeighbor,
+		ToAdvertise:   []string{vniNeighbor.Addr + "/32"}, // TODO Hack
 	}
 	return res, nil
 }
