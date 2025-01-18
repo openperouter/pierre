@@ -3,3 +3,6 @@ kind: Cluster
 nodes:
   - role: control-plane
   - role: worker
+networking:
+  disableDefaultCNI: true
+  podSubnet: 10.244.0.0/16

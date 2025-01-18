@@ -24,6 +24,8 @@ if [[ $(cat /sys/class/net/leaf2-switch/operstate) != "up" ]]; then
 sudo ip link set dev leaf2-switch up
 fi
 
+./calico/apply_calico.sh & # required as clab will stop earlier because the cni is not ready
+
 docker run --rm -it --privileged \
     --network host \
     -v /var/run/docker.sock:/var/run/docker.sock \
@@ -49,9 +51,11 @@ docker cp kind/setupworker.sh pe-kind-worker:/setupworker.sh
 docker exec pe-kind-control-plane /setup.sh
 docker exec pe-kind-worker /setupworker.sh
 
+
 kind --name pe-kind get kubeconfig > $KUBECONFIG_PATH
 export KUBECONFIG=$KUBECONFIG_PATH
-kind/frr-k8s/setup.sh
+
+#kind/frr-k8s/setup.sh
 
 sleep 4s
 docker exec clab-kind-leaf1 /setup.sh

@@ -1,0 +1,27 @@
+---
+apiVersion: projectcalico.org/v3
+kind: BGPPeer
+metadata:
+  name: openpe
+spec:
+  peerIP: 192.169.10.0
+  asNumber: 64514
+  sourceAddress: None
+  numAllowedLocalASNumbers: 5
+---
+apiVersion: projectcalico.org/v3
+kind: BGPConfiguration
+metadata:
+  name: default
+spec:
+  nodeToNodeMeshEnabled: false
+  logSeverityScreen: Info
+  asNumber: 64515
+  serviceClusterIPs:
+    - cidr: 10.96.0.0/12
+  serviceExternalIPs:
+    - cidr: 104.244.42.129/32
+    - cidr: 172.217.3.0/24
+  listenPort: 179
+  bindMode: NodeIP
+

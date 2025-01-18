@@ -28,7 +28,7 @@ topology:
 
     HOST1:
       kind: linux
-      image: praqma/network-multitool:latest
+      image: quay.io/platform9/praqma/network-multitool:latest
       binds:
         - host1/setup.sh:/setup.sh
       cmd: sleep INF
