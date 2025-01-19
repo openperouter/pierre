@@ -24,7 +24,9 @@ if [[ $(cat /sys/class/net/leaf2-switch/operstate) != "up" ]]; then
 sudo ip link set dev leaf2-switch up
 fi
 
-./calico/apply_calico.sh & # required as clab will stop earlier because the cni is not ready
+pushd calico
+./apply_calico.sh & # required as clab will stop earlier because the cni is not ready
+popd
 
 docker run --rm -it --privileged \
     --network host \
