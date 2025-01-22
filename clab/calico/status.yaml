@@ -1,0 +1,9 @@
+apiVersion: projectcalico.org/v3
+kind: CalicoNodeStatus
+metadata:
+  name: status
+spec:
+  classes:
+    - BGP
+  node: pe-kind-worker
+  updatePeriodSeconds: 10

@@ -1,22 +1,24 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: httpd
+  name: workload
 spec:
   selector:
     matchLabels:
-      app: httpd
+      app: workload
   template:
     metadata:
       labels:
-        app: httpd
+        app: workload
     spec:
       containers:
-      - name: httpd
-        image: quay.io/fedora/httpd-24:latest
+      - name: workload
+        imagePullPolicy: IfNotPresent
+        image: fedora:net
         ports:
         - name: http
           containerPort: 80
+        command: ["sleep",  "inf"]
       tolerations:
       - effect: NoSchedule
         key: node-role.kubernetes.io/master

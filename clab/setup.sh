@@ -28,6 +28,14 @@ pushd calico
 ./apply_calico.sh & # required as clab will stop earlier because the cni is not ready
 popd
 
+image="fedora:net"
+
+if [ -z "$(docker images -q $image)" ]; then
+   pushd calico/testimage
+   docker build . -t $image
+  popd
+fi
+
 docker run --rm -it --privileged \
     --network host \
     -v /var/run/docker.sock:/var/run/docker.sock \
@@ -43,10 +51,13 @@ docker image pull quay.io/metallb/frr-k8s:main
 docker image pull quay.io/frrouting/frr:9.0.0
 docker image pull quay.io/frrouting/frr:9.0.2
 docker image pull gcr.io/kubebuilder/kube-rbac-proxy:v0.13.1
+docker image pull quay.io/fedora/httpd-24:latest
 kind load docker-image quay.io/frrouting/frr:9.0.0 --name pe-kind
 kind load docker-image quay.io/frrouting/frr:9.0.2 --name pe-kind
 kind load docker-image gcr.io/kubebuilder/kube-rbac-proxy:v0.13.1 --name pe-kind
 kind load docker-image quay.io/metallb/frr-k8s:main --name pe-kind
+kind load docker-image fedora:net --name pe-kind
+kind load docker-image quay.io/fedora/httpd-24:latest --name pe-kind
 
 docker cp kind/setup.sh pe-kind-control-plane:/setup.sh
 docker cp kind/setupworker.sh pe-kind-worker:/setupworker.sh
@@ -57,11 +68,11 @@ docker exec pe-kind-worker /setupworker.sh
 kind --name pe-kind get kubeconfig > $KUBECONFIG_PATH
 export KUBECONFIG=$KUBECONFIG_PATH
 
-#kind/frr-k8s/setup.sh
 
 sleep 4s
 docker exec clab-kind-leaf1 /setup.sh
 docker exec clab-kind-leaf2 /setup.sh
 docker exec clab-kind-spine /setup.sh
 docker exec clab-kind-HOST1 /setup.sh
+
 popd

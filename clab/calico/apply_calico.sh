@@ -29,6 +29,7 @@ while true; do
     if ! kubectl apply --server-side=true -f calico-config.yaml; then
 	    continue
     fi
+
     echo "Apply calico succeeded."
     exit 0
 

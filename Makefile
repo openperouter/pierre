@@ -165,6 +165,10 @@ deploy-controller: kubectl kustomize ## Deploy controller to the K8s cluster spe
 	$(KUSTOMIZE) build config/$(KUSTOMIZE_LAYER) | $(KUBECTL) apply -f -
 	sleep 2s # wait for daemonset to be created
 	$(KUBECTL) -n ${NAMESPACE} wait --for=condition=Ready --all pods --timeout 300s
+	clab/install_tcpdump.sh
+	kubectl apply -f clab/calico/workload.yaml
+	kubectl apply -f clab/calico/status.yaml
+	kubectl apply -f clab/calico/calico-bgp.yaml
 
 .PHONY: deploy-helm
 deploy-helm: helm deploy-cluster deploy-prometheus
