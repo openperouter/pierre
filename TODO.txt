@@ -49,3 +49,5 @@ distroless image
 get rid of all the + "/32" around the codebase and better define cidrs vs addresses
 
 We are advertising the veth host ip to the host itself
+
+Add a status on VNI with the local ip / a way to use it from outside.
