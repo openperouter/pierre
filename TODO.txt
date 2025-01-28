@@ -51,3 +51,6 @@ get rid of all the + "/32" around the codebase and better define cidrs vs addres
 We are advertising the veth host ip to the host itself
 
 Add a status on VNI with the local ip / a way to use it from outside.
+
+Remove the VRF field and use the name of the VNI / autogenerate it
+Add a label to the node so the node index is sticky, or even better, use the annotation to express the VTEP / VNI cidr
