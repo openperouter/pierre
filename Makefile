@@ -270,8 +270,8 @@ kind-export-logs:
 
 .PHONY: generate-all-in-one
 generate-all-in-one: manifests kustomize ## Create manifests
-	cd config/daemons && $(KUSTOMIZE) edit set image controller=${IMG}
-	cd config/daemons && $(KUSTOMIZE) edit set namespace $(NAMESPACE)
+	#cd config/daemons && $(KUSTOMIZE) edit set image controller=${IMG}
+	#cd config/daemons && $(KUSTOMIZE) edit set namespace $(NAMESPACE)
 
 	$(KUSTOMIZE) build config/default > config/all-in-one/openpe.yaml
 	$(KUSTOMIZE) build config/crio > config/all-in-one/crio.yaml
