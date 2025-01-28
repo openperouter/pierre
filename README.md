@@ -52,13 +52,13 @@ The controller is the component in charge of:
 
 **Apply the all-in-one manifests**
 
-`kubectl apply -f https://raw.githubusercontent.com/openperouter/openperouter/refs/heads/main/config/all-in-one/openpe.yaml`
+`kubectl apply -f https://raw.githubusercontent.com/openperouter/openperouter/refs/heads/demoable/config/all-in-one/openpe.yaml`
 
 or the crio variant (if your distribution uses crio)
 
-`https://raw.githubusercontent.com/openperouter/openperouter/refs/heads/main/config/all-in-one/crio.yaml`
+`https://raw.githubusercontent.com/openperouter/openperouter/refs/heads/demoable/config/all-in-one/crio.yaml`
 
-Note that running on Openshift will require extra scc to be added. 
+Note that running on Openshift will require extra scc to be added.
 
 ```bash
 oc adm policy add-scc-to-user privileged -n openperouter-system -z openperouter-controller
@@ -85,7 +85,7 @@ spec:
   nic: eth1
   neighbors:
     - asn: 64512
-      address: 192.168.11.2 
+      address: 192.168.11.2
 ```
 
 Which includes:
