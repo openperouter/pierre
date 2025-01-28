@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  merge_group:
+  pull_request:
+    paths-ignore:
+      - 'DCO'
+      - 'LICENSE'
+      - 'README.md'
+      - 'HOW_TO_RELEASE.md'
+      - 'RELEASE_NOTES.md'
+    branches:
+      - "main"
+      - "v**"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static-security-analysis:
+    runs-on: ubuntu-22.04
+    env:
+      GO111MODULE: on
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+      - name: Run Gosec Security Scanner
+        uses: securego/gosec@v2.21.2
+        with:
+          args: -exclude-dir e2etest -severity medium ./...
+
+      - name: Golang Vulncheck
+        uses: Templum/govulncheck-action@v1.0.0
+        with:
+          skip-upload: true
+          go-version: latest
+
+  check-generated:
+    runs-on: ubuntu-22.04
+    if: github.actor != 'dependabot[bot]'
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+          cache: true
+      - name: Check Generated
+        run: |
+          make bumplicense
+          make manifests
+          make generate
+          make generate-all-in-one
+          make api-docs
+          make checkuncommitted
+
+      - name: Helm doc generate
+        uses: docker://jnorwood/helm-docs:v1.10.0
+
+      - name: Check if docs are different
+        run: make checkuncommitted
+
+  commitlint:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: wagoid/commitlint-github-action@v5
+
+  unit-tests:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+          cache: true
+
+      - name: Unit Tests
+        run: |
+          make test
+
+      - name: Lint
+        run: |
+          ENV=host make lint
